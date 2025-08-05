@@ -1,6 +1,6 @@
 import Console from "@/features/ui/Console";
 import Container from "@/shared/ui/Container";
-import Game from "@/features/ui/Game";
+import EnhancedGame from "@/features/ui/EnhancedGame";
 import Header from "@/shared/ui/Header";
 import { ReactNode } from "react";
 import View from "@/shared/ui/View";
@@ -21,7 +21,7 @@ function LevelView({ className, children }: LevelProps) {
                 {children}
 
                 <div className="flex flex-col gap-3">
-                    <Game />
+                    <EnhancedGame />
                     <Console />
                 </div>
             </Container>

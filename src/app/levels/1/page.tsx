@@ -7,10 +7,14 @@ import { useConsole } from '@/features/model/useConsole';
 import { Editor } from '@monaco-editor/react';
 import { complete, run, spawnCactus } from '@/features/model/gameMechanics';
 import { useLevelTransition } from '@/features/model/levelTransition';
+import { useExtendedGameStore } from '@/features/model/useExtendedGameStore';
+import { useSoundManager } from '@/features/model/useSoundManager';
 
 export default function LevelOne() {
     const { addLog } = useConsole();
-    const { completeLevel, showNextLevelOption, goToNext, hasNextLevel } = useLevelTransition();
+    const { completeLevel, goToNext, hasNextLevel } = useLevelTransition();
+    const { initializePlayer, startGameSession, endGameSession, updatePlayerStats, unlockAchievement, setCurrentLevel } = useExtendedGameStore();
+    const { playSound } = useSoundManager();
 
     const [code, setCode] = useState<string>(`// Исправьте ошибки в коде контракта
 pragma solidity ^0.8.0;
@@ -37,6 +41,19 @@ contract Wallet {
     const [levelCompleted, setLevelCompleted] = useState(false);
 
     useEffect(() => {
+        // Инициализируем игрока если нужно
+        const name = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('name='))
+            ?.split('=')[1];
+        
+        if (name) {
+            initializePlayer(decodeURIComponent(name));
+        }
+        
+        setCurrentLevel(1);
+        startGameSession(1);
+        
         run();
         addLog('🎯 Миссия: Восстановите кошелёк!');
         addLog('💡 Подсказка: Нужно добавить constructor и сделать deposit() payable');
@@ -44,7 +61,7 @@ contract Wallet {
         setTimeout(() => {
             spawnCactus();
         }, 1000);
-    }, []);
+    }, [initializePlayer, setCurrentLevel, startGameSession, addLog]);
 
     const checkCode = () => {
         const hasConstructor = code.includes('constructor');
@@ -66,15 +83,28 @@ contract Wallet {
 
     const handleCompile = () => {
         addLog('🔍 Проверка кода...');
+        playSound('run');
         
         if (checkCode()) {
+            playSound('success');
             addLog('✅ Код успешно скомпилирован!');
             addLog('🎉 Кошелёк восстановлен! Средства в безопасности!');
             setWalletActive(true);
             setLevelCompleted(true);
             
+            // Завершаем игровую сессию
+            endGameSession(true, 'excellent');
+            
+            // Обновляем статистику игрока
+            const stars = hints.length === 0 ? 3 : hints.length === 1 ? 2 : 1;
+            const sessionTime = Date.now() - (Date.now() - 30000); // Примерное время
+            updatePlayerStats(1, stars, sessionTime);
+            
+            // Разблокируем достижение
+            unlockAchievement('first_steps');
+            
             // Завершаем уровень
-            const isNewCompletion = completeLevel(1);
+            completeLevel(1);
             
             // Показываем кнопку перехода через 2 секунды
             setTimeout(() => {
@@ -88,6 +118,7 @@ contract Wallet {
             
             complete();
         } else {
+            playSound('error');
             addLog('❌ Ошибки в коде. Проверьте подсказки.');
             setHints(hints);
             hints.forEach(hint => addLog(`💡 ${hint}`));

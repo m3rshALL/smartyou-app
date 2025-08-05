@@ -1,14 +1,14 @@
-import { useGameStore } from "./useGameStore";
+import { useExtendedGameStore } from "./useExtendedGameStore";
 import { useConsole } from "./useConsole";
 
 export function run() {
-    const { setPlayerRunning, setPlayerDead } = useGameStore.getState();
+    const { setPlayerRunning, setPlayerDead } = useExtendedGameStore.getState();
     setPlayerRunning(true);
     setPlayerDead(false);
 }
 
 export function spawnCactus() {
-    const { setCompleted, setIsCactusSpawned } = useGameStore.getState();
+    const { setCompleted, setIsCactusSpawned } = useExtendedGameStore.getState();
     setCompleted(false);
     setIsCactusSpawned(true);
 }
@@ -18,7 +18,7 @@ export function complete() {
         setPlayerJumping,
         setCompleted,
         setIsCactusSpawned
-    } = useGameStore.getState();
+    } = useExtendedGameStore.getState();
 
     setPlayerJumping(true);
     setCompleted(true);
@@ -30,7 +30,7 @@ export function complete() {
 }
 
 export function die() {
-    const { setPlayerDead, setPlayerRunning } = useGameStore.getState();
+    const { setPlayerDead, setPlayerRunning } = useExtendedGameStore.getState();
     const { addLog } = useConsole.getState();
     
     setPlayerDead(true);
@@ -39,4 +39,54 @@ export function die() {
     setTimeout(() => {
         setPlayerRunning(false);
     }, 1000);
+}
+
+export function collectBonus(bonusType: 'shield' | 'speed' | 'slow', duration: number = 5000) {
+    const { activateBonus } = useExtendedGameStore.getState();
+    const { addLog } = useConsole.getState();
+    
+    activateBonus(bonusType, duration);
+    
+    const bonusMessages = {
+        shield: '🛡️ Щит активирован! Вы защищены от препятствий.',
+        speed: '⚡ Ускорение! Время замедлено.',
+        slow: '🐌 Замедление препятствий!'
+    };
+    
+    addLog(bonusMessages[bonusType]);
+}
+
+export function collectItem(itemType: 'coin' | 'crystal' | 'key') {
+    const { collectItem: storeCollectItem, playerProfile } = useExtendedGameStore.getState();
+    const { addLog } = useConsole.getState();
+    
+    const itemId = `${itemType}-${Date.now()}`;
+    storeCollectItem(itemId);
+    
+    const itemMessages = {
+        coin: '🪙 Монета собрана! +10 XP',
+        crystal: '💎 Кристалл найден! +25 XP',
+        key: '🔑 Ключ получен! Открывает секретные области.'
+    };
+    
+    const xpRewards = {
+        coin: 10,
+        crystal: 25,
+        key: 15
+    };
+    
+    if (playerProfile) {
+        // Добавляем опыт за собранный предмет
+        const updatedProfile = {
+            ...playerProfile,
+            stats: {
+                ...playerProfile.stats,
+                totalXP: playerProfile.stats.totalXP + xpRewards[itemType]
+            }
+        };
+        
+        useExtendedGameStore.setState({ playerProfile: updatedProfile });
+    }
+    
+    addLog(itemMessages[itemType]);
 }
