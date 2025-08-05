@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+:root {
+  --color-dark: #161616;
+  --color-background: #252525;
+  --color-light: #2e2e2e;
+  --color-dark-light: #444;
+
+  --color-subtext: #999;
+}
+
+@theme inline {
+  --color-dark: var(--color-dark);
+  --color-background: var(--color-background);
+  --color-light: var(--color-light);
+
+  --color-subtext: var(--color-subtext);
+
+  --font-golos: var(--font-golos);
+}
+
+.image-render-pixel {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* width */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: #181818;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: #555;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
