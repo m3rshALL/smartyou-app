@@ -7,12 +7,17 @@ import { useConsole } from '@/features/model/useConsole';
 import { Editor } from '@monaco-editor/react';
 import { complete, run, spawnCactus } from '@/features/model/gameMechanics';
 import { useLevelTransition } from '@/features/model/levelTransition';
-import { useRouter } from 'next/navigation';
+import { useExtendedGameStore } from '@/features/model/useExtendedGameStore';
+import { useSoundManager } from '@/features/model/useSoundManager';
 
 export default function LevelFour() {
-    const router = useRouter();
     const { addLog } = useConsole();
     const { completeLevel, goToNext, hasNextLevel } = useLevelTransition();
+    const { initializePlayer, startGameSession, endGameSession, updatePlayerStats, unlockAchievement, setCurrentLevel } = useExtendedGameStore();
+    const { playSound } = useSoundManager();
+
+    const currentLevelNumber = 4;
+    const hasNext = hasNextLevel(currentLevelNumber);
 
     const [code, setCode] = useState<string>(`// Создайте DAO для управления сообществом
 pragma solidity ^0.8.0;
@@ -71,8 +76,18 @@ contract DefenderDAO {
     const [daoActive, setDaoActive] = useState(false);
 
     useEffect(() => {
-        // Проверяем доступ к уровню (должен быть завершен уровень 3)
-        // TODO: Implement level access check if needed
+        // Инициализируем игрока если нужно
+        const name = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('name='))
+            ?.split('=')[1];
+        
+        if (name) {
+            initializePlayer(decodeURIComponent(name));
+        }
+        
+        setCurrentLevel(currentLevelNumber);
+        startGameSession(currentLevelNumber);
         
         run();
         addLog('🏛️ Миссия: Создайте децентрализованную автономную организацию!');
@@ -81,7 +96,7 @@ contract DefenderDAO {
         setTimeout(() => {
             spawnCactus();
         }, 1000);
-    }, []);
+    }, [initializePlayer, setCurrentLevel, startGameSession, addLog, currentLevelNumber]);
 
     const checkCode = () => {
         const hasStruct = code.includes('struct Proposal') && 
@@ -130,20 +145,33 @@ contract DefenderDAO {
 
     const handleCompile = () => {
         addLog('🔍 Развёртывание DAO контракта...');
+        playSound('run');
         
         if (checkCode()) {
+            playSound('success');
             addLog('✅ DAO контракт успешно развёрнут!');
             addLog('🎉 Совет защитников активирован!');
             setDaoActive(true);
             setLevelCompleted(true);
             
-            // Завершаем уровень
-            const isNewCompletion = completeLevel(4);
+            // Завершаем игровую сессию
+            endGameSession(true, 'excellent');
             
-            // Показываем кнопку перехода через 2 секунды
+            // Обновляем статистику игрока
+            const stars = 3;
+            const sessionTime = Date.now() - (Date.now() - 60000);
+            updatePlayerStats(currentLevelNumber, stars, sessionTime);
+            
+            // Разблокируем достижение
+            unlockAchievement('dao_architect');
+            
+            // Завершаем уровень
+            completeLevel(currentLevelNumber);
+            
+            // Показываем кнопку перехода через 3 секунды
             setTimeout(() => {
                 setShowNextLevelButton(true);
-                if (hasNextLevel) {
+                if (hasNext) {
                     addLog('➡️ ФИНАЛЬНЫЙ УРОВЕНЬ "Испытание хакера" разблокирован!');
                     addLog('⚠️ Приготовьтесь к серьёзному вызову!');
                 } else {
@@ -154,11 +182,20 @@ contract DefenderDAO {
             simulateDAOVoting();
             complete();
         } else {
+            playSound('error');
             addLog('❌ Ошибки в DAO контракте!');
             addLog('💡 Создайте struct Proposal с полями: description, votesFor, votesAgainst, deadline');
             addLog('💡 В vote() умножайте голос на tokenBalance[msg.sender]');
             addLog('💡 Проверяйте block.timestamp <= deadline');
         }
+    };
+
+    const handleNextLevel = () => {
+        goToNext(currentLevelNumber);
+    };
+
+    const handleBackToLevels = () => {
+        goToNext(5); // Передаём максимальный уровень, чтобы попасть в список
     };
 
     return (
@@ -180,17 +217,17 @@ contract DefenderDAO {
                         
                         {/* Показываем кнопку следующего уровня или завершения */}
                         {showNextLevelButton ? (
-                            hasNextLevel ? (
+                            hasNext ? (
                                 <button
                                     className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 animate-pulse"
-                                    onClick={goToNext}
+                                    onClick={handleNextLevel}
                                 >
                                     ФИНАЛЬНЫЙ УРОВЕНЬ →
                                 </button>
                             ) : (
                                 <button
                                     className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                                    onClick={() => goToNext()}
+                                    onClick={handleBackToLevels}
                                 >
                                     К списку уровней
                                 </button>
@@ -220,7 +257,7 @@ contract DefenderDAO {
                                 <div className="font-semibold text-green-300">🎉 Уровень пройден!</div>
                                 <div className="text-green-200">
                                     Превосходно! Вы создали работающую DAO с взвешенным голосованием. 
-                                    {hasNextLevel ? " Финальное испытание ждёт вас!" : " Все уровни завершены!"}
+                                    {hasNext ? " Финальное испытание ждёт вас!" : " Все уровни завершены!"}
                                 </div>
                             </div>
                         )}
@@ -270,7 +307,7 @@ contract DefenderDAO {
                         )}
 
                         {/* Предупреждение о финальном уровне */}
-                        {showNextLevelButton && hasNextLevel && (
+                        {showNextLevelButton && hasNext && (
                             <div className="mt-4 p-3 bg-red-900/30 border border-red-600 rounded animate-pulse">
                                 <div className="font-semibold text-red-300">⚠️ ВНИМАНИЕ: Финальное испытание!</div>
                                 <div className="text-red-200 text-sm">

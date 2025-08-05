@@ -90,3 +90,34 @@ export function collectItem(itemType: 'coin' | 'crystal' | 'key') {
     
     addLog(itemMessages[itemType]);
 }
+
+// Новая функция для обработки столкновений
+export function handleCollision() {
+    const { activeBonuses } = useExtendedGameStore.getState();
+    
+    // Если есть щит - игнорируем столкновение
+    if (activeBonuses.includes('shield')) {
+        const { addLog } = useConsole.getState();
+        addLog('🛡️ Щит защитил от столкновения!');
+        return false; // Не погибаем
+    }
+    
+    // Иначе - смерть
+    die();
+    return true; // Погибли
+}
+
+// Функция для активации бонуса скорости
+export function activateSpeedBonus() {
+    collectBonus('speed', 8000);
+}
+
+// Функция для активации щита
+export function activateShield() {
+    collectBonus('shield', 10000);
+}
+
+// Функция для замедления времени
+export function activateSlowMotion() {
+    collectBonus('slow', 6000);
+}

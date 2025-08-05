@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import Widget from "@/shared/ui/Widget";
 import { useExtendedGameStore } from "../model/useExtendedGameStore";
+import { useSoundManager } from "../model/useSoundManager";
 
 // Компонент частиц для эффектов
 function ParticleEffect({ type, x, y }: { type: 'collect' | 'bonus' | 'explosion', x: number, y: number }) {
@@ -44,12 +45,14 @@ function ParticleEffect({ type, x, y }: { type: 'collect' | 'bonus' | 'explosion
 // Компонент собираемых предметов
 function CollectibleItem({ type, position }: { type: 'coin' | 'crystal' | 'key', position: number }) {
     const { collectItem } = useExtendedGameStore();
+    const { playSound } = useSoundManager();
     const [isCollected, setIsCollected] = useState(false);
     
     const handleCollect = () => {
         if (!isCollected) {
             setIsCollected(true);
             collectItem(`${type}-${position}`);
+            playSound('collect');
         }
     };
 
@@ -103,8 +106,32 @@ export default function EnhancedGame() {
         particlesEnabled
     } = useExtendedGameStore();
 
+    const { playSound, stopSound } = useSoundManager();
+
     const [particles, setParticles] = useState<Array<{id: string, type: 'collect' | 'bonus' | 'explosion', x: number, y: number}>>([]);
     const [collectibles, setCollectibles] = useState<Array<{type: 'coin' | 'crystal' | 'key', position: number}>>([]);
+
+    // Звуковые эффекты для игровых действий
+    useEffect(() => {
+        if (playerJumping && !playerDead) {
+            playSound('jump');
+        }
+    }, [playerJumping, playerDead, playSound]);
+
+    useEffect(() => {
+        if (playerRunning && !playerDead) {
+            playSound('run');
+        } else {
+            stopSound('run');
+        }
+    }, [playerRunning, playerDead, playSound, stopSound]);
+
+    useEffect(() => {
+        if (playerDead) {
+            stopSound('run');
+            playSound('death');
+        }
+    }, [playerDead, playSound, stopSound]);
 
     // Генерируем собираемые предметы для текущего уровня
     useEffect(() => {
@@ -303,7 +330,7 @@ export default function EnhancedGame() {
                 {/* Земля (адаптивная для уровня) */}
                 <img 
                     className="absolute bottom-0 h-48 w-full image-render-pixel" 
-                    src={currentLevel === 5 ? '/ground-matrix.png' : '/ground.png'} 
+                    src={currentLevel === 5 ? '/ground.png' : '/ground.png'} 
                     alt={`Level ${currentLevel} ground`}
                 />
 

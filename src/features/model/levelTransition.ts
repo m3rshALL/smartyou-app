@@ -8,8 +8,11 @@ export const useLevelTransition = () => {
     const { addLog } = useConsole();
 
     const completeLevel = (currentLevel: number) => {
-        if (completedLevels < currentLevel) {
-            setCompletedLevels(currentLevel);
+        const wasAlreadyCompleted = completedLevels >= currentLevel;
+        
+        setCompletedLevels(currentLevel);
+        
+        if (!wasAlreadyCompleted) {
             addLog(`🏆 Уровень ${currentLevel} завершён!`);
             
             // Получение награды
@@ -43,25 +46,33 @@ export const useLevelTransition = () => {
         }, 2000);
     };
 
-    const goToNext = () => {
-        const nextLevel = goToNextLevel();
-        if (nextLevel) {
+    const goToNext = (currentLevel: number) => {
+        console.log('goToNext called with currentLevel:', currentLevel);
+        const nextLevel = goToNextLevel(currentLevel);
+        console.log('nextLevel calculated:', nextLevel);
+        
+        if (nextLevel && nextLevel <= 5) {
             addLog(`🚀 Переход на уровень ${nextLevel}...`);
-            router.push(`/levels/${nextLevel}`);
+            setTimeout(() => {
+                router.push(`/levels/${nextLevel}`);
+            }, 500);
         } else {
             addLog('🎉 Поздравляем! Все уровни пройдены!');
-            router.push('/levels/');
+            setTimeout(() => {
+                router.push('/levels');
+            }, 1000);
         }
     };
 
-    const hasNextLevel = () => {
-        return completedLevels < 5;
+    const hasNextLevel = (currentLevel: number) => {
+        return currentLevel < 5;
     };
 
     return {
         completeLevel,
         showNextLevelOption,
         goToNext,
-        hasNextLevel: hasNextLevel()
+        hasNextLevel,
+        completedLevels
     };
 };

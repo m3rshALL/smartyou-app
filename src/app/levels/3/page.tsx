@@ -7,12 +7,17 @@ import { useConsole } from '@/features/model/useConsole';
 import { Editor } from '@monaco-editor/react';
 import { complete, run, spawnCactus } from '@/features/model/gameMechanics';
 import { useLevelTransition } from '@/features/model/levelTransition';
-import { useRouter } from 'next/navigation';
+import { useExtendedGameStore } from '@/features/model/useExtendedGameStore';
+import { useSoundManager } from '@/features/model/useSoundManager';
 
 export default function LevelThree() {
-    const router = useRouter();
     const { addLog } = useConsole();
     const { completeLevel, goToNext, hasNextLevel } = useLevelTransition();
+    const { initializePlayer, startGameSession, endGameSession, updatePlayerStats, unlockAchievement, setCurrentLevel } = useExtendedGameStore();
+    const { playSound } = useSoundManager();
+
+    const currentLevelNumber = 3;
+    const hasNext = hasNextLevel(currentLevelNumber);
 
     const [code, setCode] = useState<string>(`// Создайте рынок магических артефактов
 pragma solidity ^0.8.0;
@@ -57,12 +62,18 @@ contract MagicMarket {
     const [marketplaceActive, setMarketplaceActive] = useState(false);
 
     useEffect(() => {
-        // Проверяем доступ к уровню (должен быть завершен уровень 2)
-        const completedLevels = localStorage.getItem('completedLevels');
-        if (!completedLevels || parseInt(completedLevels) < 2) {
-            router.push('/levels/');
-            return;
+        // Инициализируем игрока если нужно
+        const name = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('name='))
+            ?.split('=')[1];
+        
+        if (name) {
+            initializePlayer(decodeURIComponent(name));
         }
+        
+        setCurrentLevel(currentLevelNumber);
+        startGameSession(currentLevelNumber);
 
         run();
         addLog('🏪 Миссия: Создайте магический рынок!');
@@ -71,7 +82,7 @@ contract MagicMarket {
         setTimeout(() => {
             spawnCactus();
         }, 1000);
-    }, []);
+    }, [initializePlayer, setCurrentLevel, startGameSession, addLog, currentLevelNumber]);
 
     const checkCode = () => {
         const hasStruct = code.includes('struct Item') && 
@@ -109,21 +120,34 @@ contract MagicMarket {
 
     const handleCompile = () => {
         addLog('🔍 Компиляция контракта рынка...');
+        playSound('run');
         
         if (checkCode()) {
+            playSound('success');
             addLog('✅ Контракт магического рынка развёрнут!');
             addLog('🎉 Торговля артефактами активирована!');
             setMarketplaceActive(true);
             setLevelCompleted(true);
             
+            // Завершаем игровую сессию
+            endGameSession(true, 'excellent');
+            
+            // Обновляем статистику игрока
+            const stars = 3;
+            const sessionTime = Date.now() - (Date.now() - 50000);
+            updatePlayerStats(currentLevelNumber, stars, sessionTime);
+            
+            // Разблокируем достижение
+            unlockAchievement('market_master');
+            
             // Завершаем уровень
-            const isNewCompletion = completeLevel(3);
+            completeLevel(currentLevelNumber);
             
             // Показываем кнопку перехода через 2 секунды
             setTimeout(() => {
                 setShowNextLevelButton(true);
-                if (hasNextLevel) {
-                    addLog('➡️ Следующий уровень "DAO — Совет защитников" разблокирован!');
+                if (hasNext) {
+                    addLog('➡️ Следующий уровень разблокирован!');
                 } else {
                     addLog('🎉 Поздравляем! Все уровни пройдены!');
                 }
@@ -132,11 +156,20 @@ contract MagicMarket {
             simulateMarketplace();
             complete();
         } else {
+            playSound('error');
             addLog('❌ Ошибки в реализации рынка!');
             addLog('💡 Создайте struct Item с полями: string name, uint256 price, address owner');
             addLog('💡 В purchase() проверьте msg.value >= item.price');
             addLog('💡 Не забудьте emit ItemPurchased после покупки');
         }
+    };
+
+    const handleNextLevel = () => {
+        goToNext(currentLevelNumber);
+    };
+
+    const handleBackToLevels = () => {
+        goToNext(5); // Передаём максимальный уровень, чтобы попасть в список
     };
 
     return (
@@ -158,17 +191,17 @@ contract MagicMarket {
                         
                         {/* Показываем кнопку следующего уровня или завершения */}
                         {showNextLevelButton ? (
-                            hasNextLevel ? (
+                            hasNext ? (
                                 <button
                                     className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 animate-pulse"
-                                    onClick={goToNext}
+                                    onClick={handleNextLevel}
                                 >
                                     Следующий уровень →
                                 </button>
                             ) : (
                                 <button
                                     className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                                    onClick={() => goToNext()}
+                                    onClick={handleBackToLevels}
                                 >
                                     К списку уровней
                                 </button>
@@ -198,7 +231,7 @@ contract MagicMarket {
                                 <div className="font-semibold text-green-300">🎉 Уровень пройден!</div>
                                 <div className="text-green-200">
                                     Отлично! Вы создали рабочий рынок магических артефактов. 
-                                    {hasNextLevel ? " Следующий вызов ждёт вас - создание DAO!" : " Все уровни завершены!"}
+                                    {hasNext ? " Следующий вызов ждёт вас - создание DAO!" : " Все уровни завершены!"}
                                 </div>
                             </div>
                         )}

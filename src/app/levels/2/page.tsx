@@ -4,15 +4,20 @@ import { useEffect, useState } from 'react';
 import Widget from '@/shared/ui/Widget';
 import LevelView from '@/shared/ui/LevelView';
 import { useConsole } from '@/features/model/useConsole';
-import { useCompletedLevels } from '@/features/model/useLevels';
 import { Editor } from '@monaco-editor/react';
 import { complete, run, spawnCactus } from '@/features/model/gameMechanics';
-import { useRouter } from 'next/navigation';
+import { useLevelTransition } from '@/features/model/levelTransition';
+import { useExtendedGameStore } from '@/features/model/useExtendedGameStore';
+import { useSoundManager } from '@/features/model/useSoundManager';
 
 export default function LevelTwo() {
-    const router = useRouter();
     const { addLog } = useConsole();
-    const { setCompletedLevels, completedLevels } = useCompletedLevels();
+    const { completeLevel, goToNext, hasNextLevel } = useLevelTransition();
+    const { initializePlayer, startGameSession, endGameSession, updatePlayerStats, unlockAchievement, setCurrentLevel } = useExtendedGameStore();
+    const { playSound } = useSoundManager();
+
+    const currentLevelNumber = 2;
+    const hasNext = hasNextLevel(currentLevelNumber);
 
     const [code, setCode] = useState<string>(`// Создайте систему голосования DAO
 pragma solidity ^0.8.0;
@@ -48,13 +53,24 @@ contract Voting {
         Charlie: 0
     });
     const [voters, setVoters] = useState<string[]>([]);
+    const [votingActive, setVotingActive] = useState(false);
+    const [showNextLevelButton, setShowNextLevelButton] = useState(false);
+    const [levelCompleted, setLevelCompleted] = useState(false);
 
     useEffect(() => {
-        if (completedLevels < 1) {
-            router.push('/levels/');
-            return;
+        // Инициализируем игрока если нужно
+        const name = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('name='))
+            ?.split('=')[1];
+        
+        if (name) {
+            initializePlayer(decodeURIComponent(name));
         }
-
+        
+        setCurrentLevel(currentLevelNumber);
+        startGameSession(currentLevelNumber);
+        
         run();
         addLog('🗳️ Миссия: Создайте безопасную систему голосования!');
         addLog('⚠️ Внимание: нужно предотвратить повторное голосование');
@@ -62,11 +78,7 @@ contract Voting {
         setTimeout(() => {
             spawnCactus();
         }, 1000);
-    }, [completedLevels]);
-
-    if (completedLevels < 1) {
-        return <></>;
-    }
+    }, [initializePlayer, setCurrentLevel, startGameSession, addLog, currentLevelNumber]);
 
     const checkCode = () => {
         const hasRequire = code.includes('require(!hasVoted[msg.sender]') || 
@@ -107,25 +119,55 @@ contract Voting {
 
     const handleCompile = () => {
         addLog('🔍 Компиляция контракта голосования...');
+        playSound('run');
         
         if (checkCode()) {
+            playSound('success');
             addLog('✅ Контракт успешно скомпилирован!');
             addLog('🎉 Система голосования защищена от злоупотреблений!');
+            setVotingActive(true);
+            setLevelCompleted(true);
             
-            // Обновляем прогресс
-            if (completedLevels < 2) {
-                setCompletedLevels(2);
-                addLog('🏆 Получено звание: "Защитник демократии"');
-                addLog('🔓 Разблокирован режим "Учебное DAO"');
-            }
+            // Завершаем игровую сессию
+            endGameSession(true, 'excellent');
+            
+            // Обновляем статистику игрока
+            const stars = 3; // Всегда 3 звезды за правильное решение
+            const sessionTime = Date.now() - (Date.now() - 45000);
+            updatePlayerStats(currentLevelNumber, stars, sessionTime);
+            
+            // Разблокируем достижение
+            unlockAchievement('democratic_ninja');
+            
+            // Завершаем уровень
+            completeLevel(currentLevelNumber);
+            
+            // Показываем кнопку перехода через 2 секунды
+            setTimeout(() => {
+                setShowNextLevelButton(true);
+                if (hasNext) {
+                    addLog('➡️ Следующий уровень разблокирован!');
+                } else {
+                    addLog('🎉 Поздравляем! Все уровни пройдены!');
+                }
+            }, 2000);
             
             simulateVoting();
             complete();
         } else {
+            playSound('error');
             addLog('❌ В коде есть уязвимости безопасности!');
             addLog('💡 Добавьте проверку require(!hasVoted[msg.sender], "Already voted")');
             addLog('💡 Не забудьте установить hasVoted[msg.sender] = true');
         }
+    };
+
+    const handleNextLevel = () => {
+        goToNext(currentLevelNumber);
+    };
+
+    const handleBackToLevels = () => {
+        goToNext(5); // Передаём максимальный уровень, чтобы попасть в список
     };
 
     return (
@@ -140,13 +182,37 @@ contract Voting {
                 }
             >
                 <div className="h-full w-full overflow-y-scroll relative pb-24">
-                    <div className="absolute bottom-16 right-3">
-                        <button
-                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                            onClick={handleCompile}
-                        >
-                            Запустить голосование
-                        </button>
+                    <div className="absolute bottom-16 right-3 flex gap-2">
+                        <div className={`px-3 py-1 rounded text-sm ${votingActive ? 'bg-green-600' : 'bg-red-600'}`}>
+                            {votingActive ? '🗳️ Голосование активно' : '🔒 Голосование заблокировано'}
+                        </div>
+                        
+                        {/* Показываем кнопку следующего уровня или завершения */}
+                        {showNextLevelButton ? (
+                            hasNext ? (
+                                <button
+                                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 animate-pulse"
+                                    onClick={handleNextLevel}
+                                >
+                                    Следующий уровень →
+                                </button>
+                            ) : (
+                                <button
+                                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                                    onClick={handleBackToLevels}
+                                >
+                                    К списку уровней
+                                </button>
+                            )
+                        ) : (
+                            <button
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                onClick={handleCompile}
+                                disabled={levelCompleted}
+                            >
+                                {levelCompleted ? 'Выполнено ✓' : 'Запустить голосование'}
+                            </button>
+                        )}
                     </div>
 
                     <div className="p-4">
@@ -170,6 +236,17 @@ contract Voting {
                             </div>
                         </div>
 
+                        {/* Сообщение о завершении */}
+                        {levelCompleted && (
+                            <div className="mt-4 p-3 bg-green-900/30 border border-green-600 rounded">
+                                <div className="font-semibold text-green-300">🎉 Уровень пройден!</div>
+                                <div className="text-green-200">
+                                    Превосходно! Вы создали надёжную систему голосования. 
+                                    {hasNext ? " Переходите к следующему вызову!" : " Все уровни завершены!"}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="mt-6 h-[500px] flex flex-col gap-4">
                             <Editor
                                 language="solidity"
@@ -179,6 +256,7 @@ contract Voting {
                                 options={{
                                     minimap: { enabled: false },
                                     fontSize: 14,
+                                    readOnly: levelCompleted,
                                 }}
                             />
                         </div>

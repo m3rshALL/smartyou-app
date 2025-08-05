@@ -7,12 +7,18 @@ import { useConsole } from '@/features/model/useConsole';
 import { useLevelTransition } from '@/features/model/levelTransition';
 import { Editor } from '@monaco-editor/react';
 import { complete, run, spawnCactus } from '@/features/model/gameMechanics';
+import { useExtendedGameStore } from '@/features/model/useExtendedGameStore';
+import { useSoundManager } from '@/features/model/useSoundManager';
 import { useRouter } from 'next/navigation';
 
 export default function LevelFive() {
     const router = useRouter();
     const { addLog } = useConsole();
     const { completeLevel } = useLevelTransition();
+    const { initializePlayer, startGameSession, endGameSession, updatePlayerStats, unlockAchievement, setCurrentLevel, playerProfile } = useExtendedGameStore();
+    const { playSound } = useSoundManager();
+
+    const currentLevelNumber = 5;
 
     const [code, setCode] = useState<string>(`// Защитите контракт от реентранси атак
 pragma solidity ^0.8.0;
@@ -45,6 +51,19 @@ contract VulnerableBank {
     const [gameCompleted, setGameCompleted] = useState(false);
 
     useEffect(() => {
+        // Инициализируем игрока если нужно
+        const name = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('name='))
+            ?.split('=')[1];
+        
+        if (name) {
+            initializePlayer(decodeURIComponent(name));
+        }
+        
+        setCurrentLevel(currentLevelNumber);
+        startGameSession(currentLevelNumber);
+        
         run();
         addLog('🛡️ ФИНАЛЬНАЯ МИССИЯ: Защитите контракт от хакерской атаки!');
         addLog('⚠️ Обнаружена уязвимость реентранси в функции withdraw()');
@@ -52,7 +71,7 @@ contract VulnerableBank {
         setTimeout(() => {
             spawnCactus();
         }, 1000);
-    }, []);
+    }, [initializePlayer, setCurrentLevel, startGameSession, addLog, currentLevelNumber]);
 
     const checkSecurity = () => {
         const hasBalanceUpdateBeforeTransfer = code.indexOf('balances[msg.sender] -= amount') < 
@@ -91,16 +110,29 @@ contract VulnerableBank {
                 setAttackInProgress(false);
                 
                 if (isSecure) {
+                    playSound('success');
                     addLog('✅ АТАКА ОТРАЖЕНА! Контракт защищён!');
                     addLog('🎉 Хакер не смог украсть средства!');
+                    
+                    // Завершаем игровую сессию
+                    endGameSession(true, 'excellent');
+                    
+                    // Обновляем статистику игрока
+                    const stars = 3;
+                    const sessionTime = Date.now() - (Date.now() - 80000);
+                    updatePlayerStats(currentLevelNumber, stars, sessionTime);
+                    
+                    // Разблокируем достижение
+                    unlockAchievement('security_expert');
                     
                     // Завершаем игру
                     setTimeout(() => {
                         setGameCompleted(true);
-                        completeLevel(5);
+                        completeLevel(currentLevelNumber);
                         addLog('🏆 КУРС ЗАВЕРШЁН! Вы настоящий мастер Solidity!');
                     }, 2000);
                 } else {
+                    playSound('error');
                     addLog('💀 КОНТРАКТ ВЗЛОМАН! Баланс опустошён!');
                     addLog('❌ Реентранси атака сработала!');
                 }
@@ -110,15 +142,18 @@ contract VulnerableBank {
 
     const handleCompile = () => {
         addLog('🔍 Анализ безопасности контракта...');
+        playSound('run');
         
         const secure = checkSecurity();
         setIsSecure(secure);
         
         if (secure) {
+            playSound('success');
             addLog('✅ Контракт защищён от реентранси атак!');
             addLog('🛡️ Применён паттерн: Проверка → Эффект → Взаимодействие');
             complete();
         } else {
+            playSound('error');
             addLog('❌ Контракт всё ещё уязвим!');
             addLog('💡 Переместите balances[msg.sender] -= amount ПЕРЕД вызовом call');
             addLog('💡 Или используйте modifier nonReentrant');
@@ -176,7 +211,7 @@ contract VulnerableBank {
                             
                             <div className="text-xl text-gray-300 mb-8">
                                 Вы успешно прошли все 5 уровней Smart You и получили звание 
-                                <span className="font-bold text-yellow-400"> "Страж блокчейна"</span>!
+                                <span className="font-bold text-yellow-400"> &quot;Страж блокчейна&quot;</span>!
                             </div>
 
                             {/* Статистика */}
@@ -186,11 +221,11 @@ contract VulnerableBank {
                                     <div className="text-sm text-gray-300">Уровней пройдено</div>
                                 </div>
                                 <div>
-                                    <div className="text-3xl font-bold text-yellow-400">100</div>
+                                    <div className="text-3xl font-bold text-yellow-400">{playerProfile?.stats?.totalXP || 100}</div>
                                     <div className="text-sm text-gray-300">XP заработано</div>
                                 </div>
                                 <div>
-                                    <div className="text-3xl font-bold text-purple-400">5</div>
+                                    <div className="text-3xl font-bold text-purple-400">{playerProfile?.stats?.achievements?.length || 5}</div>
                                     <div className="text-sm text-gray-300">Бейджей получено</div>
                                 </div>
                             </div>
