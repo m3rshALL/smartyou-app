@@ -27,8 +27,8 @@ export default function Certificate() {
                         <div className="text-lg mb-4">Настоящим подтверждается, что</div>
                         <div className="text-3xl font-bold mb-4 text-purple-800">Smart You Student</div>
                         <div className="text-lg mb-4">успешно завершил обучающий курс</div>
-                        <div className="text-2xl font-bold mb-4">"Smart You: Путь к мастерству Solidity"</div>
-                        <div className="text-lg">и получил звание <strong>"Страж блокчейна"</strong></div>
+                        <div className="text-2xl font-bold mb-4">&quot;Smart You: Путь к мастерству Solidity&quot;</div>
+                        <div className="text-lg">и получил звание <strong>&quot;Страж блокчейна&quot;</strong></div>
                     </div>
                     
                     <div className="flex justify-between items-center text-sm text-gray-600">

@@ -6,7 +6,11 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "analyze": "npx tsx scripts/analyze.ts --analyze",
+    "analyze:docs": "npx tsx scripts/analyze.ts --docs",
+    "analyze:suggest": "npx tsx scripts/analyze.ts --suggest",
+    "analyze:all": "npx tsx scripts/analyze.ts --analyze --suggest --docs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
@@ -30,6 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.4.4",
     "tailwindcss": "^4",
+    "tsx": "^4.20.3",
     "typescript": "^5"
   }
 }

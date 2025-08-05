@@ -185,7 +185,7 @@ export default function LevelsList() {
                             <div className="text-2xl mb-2">🎉 ПОЗДРАВЛЯЕМ! 🎉</div>
                             <div className="text-lg font-semibold">Все уровни пройдены!</div>
                             <div className="text-purple-300 mt-2">
-                                Вы успешно завершили курс Solidity и получили звание "Мастер блокчейна"
+                                Вы успешно завершили курс Solidity и получили звание &quot;Мастер блокчейна&quot;
                             </div>
                             <div className="mt-4 flex justify-center gap-2">
                                 <button

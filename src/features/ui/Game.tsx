@@ -31,6 +31,7 @@ export default function Game() {
                         <motion.img
                             className="absolute bottom-48 h-24 aspect-auto z-100 image-render-pixel"
                             src={'/player.png'}
+                            alt="Player character"
                             initial={{ x: "-100%" }}
                             animate={
                                 playerDead
@@ -76,6 +77,7 @@ export default function Game() {
                     <motion.img
                         className="absolute bottom-48 h-24 aspect-auto right-0 image-render-pixel"
                         src={'/cactus.png'}
+                        alt="Cactus obstacle"
                         initial={{ x: '100%' }}
                         animate={completed ? { x: -1000 } : { x: -250 }}
                         transition={{ duration: 1.5, ease: 'easeInOut' }}
@@ -83,7 +85,7 @@ export default function Game() {
                 )}
 
                 {/* Земля */}
-                <img className="absolute bottom-0 h-48 w-full image-render-pixel" src={'/ground.png'} />
+                <img className="absolute bottom-0 h-48 w-full image-render-pixel" src={'/ground.png'} alt="Ground texture" />
             </div>
         </Widget>
     );

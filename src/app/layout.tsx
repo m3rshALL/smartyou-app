@@ -1,13 +1,12 @@
 import "./globals.css";
 
-import { Golos_Text } from "next/font/google";
 import type { Metadata } from "next";
 import StoreProvider from "@/features/ui/StoreProvider";
 
-const golos = Golos_Text({
+// Fallback font configuration to avoid network dependency issues
+const golos = {
   variable: "--font-golos",
-  subsets: ["latin"],
-});
+};
 
 export const metadata: Metadata = {
   title: "Smart You",

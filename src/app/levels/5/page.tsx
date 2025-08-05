@@ -176,7 +176,7 @@ contract VulnerableBank {
                             
                             <div className="text-xl text-gray-300 mb-8">
                                 Вы успешно прошли все 5 уровней Smart You и получили звание 
-                                <span className="font-bold text-yellow-400"> "Страж блокчейна"</span>!
+                                <span className="font-bold text-yellow-400"> &quot;Страж блокчейна&quot;</span>!
                             </div>
 
                             {/* Статистика */}
