@@ -10,6 +10,7 @@ function Header() {
 
     const navItems = [
         { href: "/levels", label: "Уровни", icon: "🎮" },
+        { href: "/blockchain", label: "Blockchain", icon: "⛓️" },
         { href: "/leaderboard", label: "Рейтинг", icon: "🏆" },
         { href: "/achievements", label: "Достижения", icon: "🏅" },
         { href: "/certificate", label: "Сертификат", icon: "📜" }
