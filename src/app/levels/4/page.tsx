@@ -54,22 +54,17 @@ contract DefenderDAO {
     }
 }`);
 
-    const [proposals, setProposals] = useState([
-        {
-            id: 1,
-            description: "Увеличить награды за безопасность на 20%",
-            votesFor: 0,
-            votesAgainst: 0,
-            deadline: Date.now() + 30000, // 30 секунд
-            executed: false
-        }
-    ]);
-
-    const [voters] = useState([
-        { name: "Алиса", tokens: 5, address: "0xAb8..." },
-        { name: "Боб", tokens: 3, address: "0x4B2..." },
-        { name: "Чарли", tokens: 2, address: "0x787..." }
-    ]);
+    const [dao, setDao] = useState({
+        members: [
+            { address: "Алиса", tokens: 5, voted: false },
+            { address: "Боб", tokens: 3, voted: false },
+            { address: "Чарли", tokens: 2, voted: false }
+        ],
+        proposals: [
+            { id: 1, description: "Увеличить бюджет на защиту", votesFor: 0, votesAgainst: 0, executed: false },
+            { id: 2, description: "Добавить новых защитников", votesFor: 0, votesAgainst: 0, executed: false }
+        ]
+    });
 
     const [showNextLevelButton, setShowNextLevelButton] = useState(false);
     const [levelCompleted, setLevelCompleted] = useState(false);
@@ -88,7 +83,7 @@ contract DefenderDAO {
         
         setCurrentLevel(currentLevelNumber);
         startGameSession(currentLevelNumber);
-        
+
         run();
         addLog('🏛️ Миссия: Создайте децентрализованную автономную организацию!');
         addLog('⚖️ Реализуйте взвешенное голосование по токенам');
@@ -100,51 +95,63 @@ contract DefenderDAO {
 
     const checkCode = () => {
         const hasStruct = code.includes('struct Proposal') && 
-                         code.includes('deadline') && 
-                         code.includes('votesFor');
-        const hasWeightedVoting = code.includes('tokenBalance[msg.sender]') || 
-                                code.includes('tokenBalance');
-        const hasTimeCheck = code.includes('block.timestamp') || 
-                           code.includes('deadline');
+                         code.includes('description') && 
+                         code.includes('votesFor') &&
+                         code.includes('deadline');
+        const hasCreateProposal = code.includes('proposals.push') && 
+                                 code.includes('proposalCount++');
+        const hasVote = code.includes('hasVoted') && 
+                       code.includes('tokenBalance[msg.sender]') &&
+                       code.includes('deadline');
+        const hasExecute = code.includes('block.timestamp') && 
+                          code.includes('executed = true');
         
-        return hasStruct && hasWeightedVoting && hasTimeCheck;
+        return hasStruct && hasCreateProposal && hasVote && hasExecute;
     };
 
-    const simulateDAOVoting = () => {
-        addLog('🗳️ Начинается голосование в DAO...');
-        
-        voters.forEach((voter, index) => {
-            setTimeout(() => {
-                const support = Math.random() > 0.3; // 70% за, 30% против
-                const weight = voter.tokens;
-                
-                setProposals(prev => prev.map(p => p.id === 1 ? {
-                    ...p,
-                    votesFor: support ? p.votesFor + weight : p.votesFor,
-                    votesAgainst: !support ? p.votesAgainst + weight : p.votesAgainst
-                } : p));
-                
-                addLog(`${support ? '✅' : '❌'} ${voter.name} голосует ${support ? 'ЗА' : 'ПРОТИВ'} (+${weight} токенов)`);
-                
-                if (index === voters.length - 1) {
-                    setTimeout(() => {
-                        addLog('⏰ Время голосования истекло!');
-                        addLog('📊 Подсчёт результатов...');
-                        
-                        const proposal = proposals[0];
-                        if (proposal.votesFor > proposal.votesAgainst) {
-                            addLog('🎉 Предложение ПРИНЯТО! Выполняется...');
-                        } else {
-                            addLog('❌ Предложение ОТКЛОНЕНО');
-                        }
-                    }, 2000);
-                }
-            }, index * 1000);
+    const simulateDAO = () => {
+        addLog('👥 Участники DAO готовы к голосованию:');
+        dao.members.forEach(member => {
+            addLog(`  • ${member.address}: ${member.tokens} токенов`);
         });
+
+        // Симуляция голосования
+        setTimeout(() => {
+            dao.proposals.forEach((proposal, index) => {
+                setTimeout(() => {
+                    const forVotes = Math.floor(Math.random() * 8) + 2;
+                    const againstVotes = Math.floor(Math.random() * 3);
+                    const executed = forVotes > againstVotes;
+                    
+                    setDao(prev => ({
+                        ...prev,
+                        proposals: prev.proposals.map(p => 
+                            p.id === proposal.id 
+                                ? { ...p, votesFor: forVotes, votesAgainst: againstVotes, executed }
+                                : p
+                        )
+                    }));
+                    
+                    addLog(`🗳️ Предложение #${proposal.id}:`);
+                    addLog(`   ✅ За: ${forVotes} | ❌ Против: ${againstVotes}`);
+                    if (executed) {
+                        addLog(`   🎉 Предложение принято и выполнено!`);
+                    }
+                }, index * 3000);
+            });
+        }, 2000);
+
+        // Обновляем состояние участников
+        setTimeout(() => {
+            setDao(prev => ({
+                ...prev,
+                members: prev.members.map(m => ({ ...m, voted: true }))
+            }));
+        }, 1500);
     };
 
     const handleCompile = () => {
-        addLog('🔍 Развёртывание DAO контракта...');
+        addLog('🔍 Компиляция DAO контракта...');
         playSound('run');
         
         if (checkCode()) {
@@ -168,7 +175,7 @@ contract DefenderDAO {
             // Завершаем уровень
             completeLevel(currentLevelNumber);
             
-            // Показываем кнопку перехода через 3 секунды
+            // Показываем кнопку перехода через 2 секунды
             setTimeout(() => {
                 setShowNextLevelButton(true);
                 if (hasNext) {
@@ -177,16 +184,17 @@ contract DefenderDAO {
                 } else {
                     addLog('🎉 Поздравляем! Все уровни пройдены!');
                 }
-            }, 3000);
+            }, 2000);
             
-            simulateDAOVoting();
+            simulateDAO();
             complete();
         } else {
             playSound('error');
-            addLog('❌ Ошибки в DAO контракте!');
-            addLog('💡 Создайте struct Proposal с полями: description, votesFor, votesAgainst, deadline');
-            addLog('💡 В vote() умножайте голос на tokenBalance[msg.sender]');
-            addLog('💡 Проверяйте block.timestamp <= deadline');
+            addLog('❌ DAO содержит ошибки!');
+            addLog('💡 Создайте struct Proposal: description, votesFor, votesAgainst, deadline, executed');
+            addLog('💡 В createProposal(): proposals.push(Proposal(...)), proposalCount++');
+            addLog('💡 В vote(): require(!hasVoted[proposalId][msg.sender]), проверить deadline');
+            addLog('💡 В executeProposal(): проверить block.timestamp > deadline');
         }
     };
 
@@ -205,14 +213,14 @@ contract DefenderDAO {
                 title="Уровень 4: DAO — Совет защитников"
                 icon={
                     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3">
-                        <path d="M160-120v-480l320-240 320 240v480H560v-280H400v280H160Z"/>
+                        <path d="M480-120q-151 0-255.5-46.5T120-280v-400q0-66 105.5-113T480-840q149 0 254.5 47T840-680v400q0 67-104.5 113.5T480-120Zm0-479q89 0 179-25.5T760-679q-11-29-100.5-55T480-760q-91 0-180.5 26T199-679q11 29 101 54.5T480-599Zm0 199q42 0 81-4t74.5-11.5q35.5-7.5 67-17.5t57.5-22v-120q-26 14-57.5 23.5t-67 17Q600-528 561-524t-81 4q-42 0-82-4t-75.5-11.5Q287-543 256-552.5T200-576v120q26 14 57.5 23.5t67 17Q360-408 399.5-404t80.5 4Zm0 200q46 0 93.5-7t84.5-18.5q37-11.5 67-26t32-29.5v-98q-26 14-57.5 23.5t-67 17Q600-328 561-324t-81 4q-42 0-82-4t-75.5-11.5Q287-343 256-352.5T200-376v99q2 12 32 27t67 26q37 11.5 84.5 18.5T480-200Z"/>
                     </svg>
                 }
             >
                 <div className="h-full w-full overflow-y-scroll relative pb-24">
                     <div className="absolute bottom-16 right-3 flex gap-2">
-                        <div className={`px-3 py-1 rounded text-sm ${daoActive ? 'bg-green-600' : 'bg-indigo-600'}`}>
-                            {daoActive ? '🏛️ DAO активно' : '🔒 DAO неактивно'}
+                        <div className={`px-3 py-1 rounded text-sm ${daoActive ? 'bg-green-600' : 'bg-blue-600'}`}>
+                            {daoActive ? '🏛️ DAO активна' : '🔒 DAO не развёрнута'}
                         </div>
                         
                         {/* Показываем кнопку следующего уровня или завершения */}
@@ -222,7 +230,7 @@ contract DefenderDAO {
                                     className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 animate-pulse"
                                     onClick={handleNextLevel}
                                 >
-                                    ФИНАЛЬНЫЙ УРОВЕНЬ →
+                                    Финальный уровень →
                                 </button>
                             ) : (
                                 <button
@@ -234,11 +242,11 @@ contract DefenderDAO {
                             )
                         ) : (
                             <button
-                                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                                 onClick={handleCompile}
                                 disabled={levelCompleted}
                             >
-                                {levelCompleted ? 'Выполнено ✓' : 'Активировать DAO'}
+                                {levelCompleted ? 'Выполнено ✓' : 'Развернуть DAO'}
                             </button>
                         )}
                     </div>
@@ -263,61 +271,60 @@ contract DefenderDAO {
                         )}
 
                         {/* Панель DAO */}
-                        <div className="mt-4 space-y-3">
-                            {/* Участники */}
-                            <div className="p-3 bg-indigo-900/30 border border-indigo-600 rounded">
-                                <div className="font-semibold text-indigo-300">Участники DAO:</div>
-                                <div className="grid grid-cols-3 gap-2 mt-2">
-                                    {voters.map((voter) => (
-                                        <div key={voter.name} className="text-center">
-                                            <div className="font-semibold">{voter.name}</div>
-                                            <div className="text-sm">🪙 {voter.tokens} токенов</div>
+                        <div className="mt-4 p-3 bg-blue-900/30 border border-blue-600 rounded">
+                            <div className="font-semibold text-blue-300">Состояние DefenderDAO:</div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                <div>
+                                    <div className="text-sm font-medium">👥 Участники ({dao.members.length}):</div>
+                                    {dao.members.map((member, idx) => (
+                                        <div key={idx} className={`text-xs p-2 rounded mt-1 ${
+                                            member.voted ? 'bg-green-800/30 border border-green-600/30' : 'bg-gray-800/50'
+                                        }`}>
+                                            <div>{member.address}</div>
+                                            <div>Токенов: {member.tokens}</div>
+                                            <div className={member.voted ? 'text-green-300' : 'text-gray-400'}>
+                                                {member.voted ? '✅ Проголосовал' : '⏳ Ожидает'}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
-                            </div>
-
-                            {/* Предложения */}
-                            <div className="p-3 bg-green-900/30 border border-green-600 rounded">
-                                <div className="font-semibold text-green-300">Активные предложения:</div>
-                                {proposals.map((proposal) => (
-                                    <div key={proposal.id} className="mt-2">
-                                        <div className="font-medium">{proposal.description}</div>
-                                        <div className="flex gap-4 text-sm mt-1">
-                                            <span className="text-green-300">✅ ЗА: {proposal.votesFor}</span>
-                                            <span className="text-red-300">❌ ПРОТИВ: {proposal.votesAgainst}</span>
+                                <div>
+                                    <div className="text-sm font-medium">📋 Предложения:</div>
+                                    {dao.proposals.map((proposal) => (
+                                        <div key={proposal.id} className={`text-xs p-2 rounded mt-1 ${
+                                            proposal.executed 
+                                                ? 'bg-green-800/30 border border-green-600/30' 
+                                                : proposal.votesFor > 0 || proposal.votesAgainst > 0
+                                                    ? 'bg-yellow-800/30 border border-yellow-600/30'
+                                                    : 'bg-gray-800/30 border border-gray-600/30'
+                                        }`}>
+                                            <div className="font-medium">#{proposal.id}</div>
+                                            <div>{proposal.description}</div>
+                                            <div>За: {proposal.votesFor} | Против: {proposal.votesAgainst}</div>
+                                            <div className={proposal.executed ? 'text-green-300' : 'text-gray-400'}>
+                                                {proposal.executed ? '✅ Выполнено' : '⏳ Ожидает'}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
                         {/* Подсказки для реализации */}
                         {!levelCompleted && (
                             <div className="mt-4 p-3 bg-yellow-900/30 border border-yellow-600 rounded">
-                                <div className="font-semibold text-yellow-300">💡 Подсказки для реализации DAO:</div>
+                                <div className="font-semibold text-yellow-300">💡 Подсказки для реализации:</div>
                                 <div className="text-yellow-200 text-sm space-y-1 mt-2">
                                     <div>• Создайте struct Proposal: description, votesFor, votesAgainst, deadline, executed</div>
                                     <div>• В createProposal(): proposals.push(Proposal(...)), proposalCount++</div>
                                     <div>• В vote(): require(!hasVoted[proposalId][msg.sender]), проверить deadline</div>
                                     <div>• Взвешенное голосование: votesFor += tokenBalance[msg.sender]</div>
-                                    <div>• В executeProposal(): проверить block.timestamp &gt; deadline</div>
+                                    <div>• В executeProposal(): проверить block.timestamp {'>'} deadline</div>
                                 </div>
                             </div>
                         )}
 
-                        {/* Предупреждение о финальном уровне */}
-                        {showNextLevelButton && hasNext && (
-                            <div className="mt-4 p-3 bg-red-900/30 border border-red-600 rounded animate-pulse">
-                                <div className="font-semibold text-red-300">⚠️ ВНИМАНИЕ: Финальное испытание!</div>
-                                <div className="text-red-200 text-sm">
-                                    Следующий уровень - это серьёзный вызов. Вам предстоит защитить контракт от реальных хакерских атак. 
-                                    Приготовьтесь применить все полученные знания!
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="mt-6 h-[400px] flex flex-col gap-4">
+                        <div className="mt-6 h-[500px] flex flex-col gap-4">
                             <Editor
                                 language="solidity"
                                 theme="vs-dark"

@@ -262,7 +262,7 @@ contract MagicMarket {
                                 <div className="text-yellow-200 text-sm space-y-1 mt-2">
                                     <div>• Создайте struct Item с полями: string name, uint256 price, address owner</div>
                                     <div>• В createItem() сохраните item в mapping: items[itemCount] = Item(...)</div>
-                                    <div>• В purchase() проверьте: require(msg.value {'>'}= items[itemId].price)</div>
+                                    <div>• В purchase() проверьте: require(msg.value {'>='}= items[itemId].price)</div>
                                     <div>• Обновите владельца: items[itemId].owner = msg.sender</div>
                                     <div>• Добавьте событие: emit ItemPurchased(itemId, msg.sender, price)</div>
                                 </div>

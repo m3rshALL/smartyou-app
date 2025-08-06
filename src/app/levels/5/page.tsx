@@ -4,18 +4,16 @@ import { useEffect, useState } from 'react';
 import Widget from '@/shared/ui/Widget';
 import LevelView from '@/shared/ui/LevelView';
 import { useConsole } from '@/features/model/useConsole';
-import { useLevelTransition } from '@/features/model/levelTransition';
 import { Editor } from '@monaco-editor/react';
 import { complete, run, spawnCactus } from '@/features/model/gameMechanics';
+import { useLevelTransition } from '@/features/model/levelTransition';
 import { useExtendedGameStore } from '@/features/model/useExtendedGameStore';
 import { useSoundManager } from '@/features/model/useSoundManager';
-import { useRouter } from 'next/navigation';
 
 export default function LevelFive() {
-    const router = useRouter();
     const { addLog } = useConsole();
     const { completeLevel } = useLevelTransition();
-    const { initializePlayer, startGameSession, endGameSession, updatePlayerStats, unlockAchievement, setCurrentLevel, playerProfile } = useExtendedGameStore();
+    const { initializePlayer, startGameSession, endGameSession, updatePlayerStats, unlockAchievement, setCurrentLevel } = useExtendedGameStore();
     const { playSound } = useSoundManager();
 
     const currentLevelNumber = 5;
@@ -45,10 +43,16 @@ contract VulnerableBank {
     }
 }`);
 
-    const [contractBalance, setContractBalance] = useState(1000);
-    const [attackInProgress, setAttackInProgress] = useState(false);
-    const [isSecure, setIsSecure] = useState(false);
-    const [gameCompleted, setGameCompleted] = useState(false);
+    const [securityStatus, setSecurityStatus] = useState({
+        reentrancyFixed: false,
+        attackBlocked: false,
+        fundsSecure: false
+    });
+
+    const [showCompletionButton, setShowCompletionButton] = useState(false);
+    const [levelCompleted, setLevelCompleted] = useState(false);
+    const [hackingInProgress, setHackingInProgress] = useState(false);
+    const [attackAttempts, setAttackAttempts] = useState(0);
 
     useEffect(() => {
         // Инициализируем игрока если нужно
@@ -63,7 +67,7 @@ contract VulnerableBank {
         
         setCurrentLevel(currentLevelNumber);
         startGameSession(currentLevelNumber);
-        
+
         run();
         addLog('🛡️ ФИНАЛЬНАЯ МИССИЯ: Защитите контракт от хакерской атаки!');
         addLog('⚠️ Обнаружена уязвимость реентранси в функции withdraw()');
@@ -71,245 +75,115 @@ contract VulnerableBank {
         setTimeout(() => {
             spawnCactus();
         }, 1000);
-    }, [initializePlayer, setCurrentLevel, startGameSession, addLog, currentLevelNumber]);
 
-    const checkSecurity = () => {
-        const hasBalanceUpdateBeforeTransfer = code.indexOf('balances[msg.sender] -= amount') < 
-                                              code.indexOf('call{value: amount}');
-        const hasReentrancyGuard = code.includes('nonReentrant') || 
-                                  code.includes('_status') ||
-                                  code.includes('require(!locked');
-        const hasOpenZeppelin = code.includes('ReentrancyGuard');
+        // Симуляция атак хакеров
+        const attackInterval = setInterval(() => {
+            if (!levelCompleted) {
+                setAttackAttempts(prev => prev + 1);
+                const attacks = [
+                    "🔴 Попытка реентранси атаки!",
+                    "🔴 Хакер пытается вывести средства!",
+                    "🔴 Обнаружена попытка двойного расходования!",
+                    "🔴 Атака на функцию withdraw()!"
+                ];
+                const randomAttack = attacks[Math.floor(Math.random() * attacks.length)];
+                addLog(randomAttack);
+                
+                if (Math.random() > 0.7) {
+                    setHackingInProgress(true);
+                    setTimeout(() => setHackingInProgress(false), 2000);
+                }
+            }
+        }, 5000);
+
+        return () => clearInterval(attackInterval);
+    }, [initializePlayer, setCurrentLevel, startGameSession, addLog, currentLevelNumber, levelCompleted]);
+
+    const checkCode = () => {
+        // Проверяем правильный порядок операций (CEI pattern)
+        const ceiPattern = code.includes('balances[msg.sender] -= amount') && 
+                          code.indexOf('balances[msg.sender] -= amount') < code.indexOf('call{value: amount}');
         
-        return hasBalanceUpdateBeforeTransfer || hasReentrancyGuard || hasOpenZeppelin;
+        // Проверяем наличие ReentrancyGuard или аналогичной защиты
+        const hasReentrancyGuard = code.includes('nonReentrant') || 
+                                  code.includes('ReentrancyGuard') || 
+                                  ceiPattern;
+
+        return {
+            reentrancyFixed: hasReentrancyGuard,
+            attackBlocked: hasReentrancyGuard,
+            fundsSecure: hasReentrancyGuard
+        };
     };
 
-    const simulateAttack = () => {
-        setAttackInProgress(true);
-        addLog('🚨 АТАКА НАЧАЛАСЬ!');
-        addLog('👤 Хакер вызывает withdraw()...');
+    const simulateSecureOperations = () => {
+        addLog('🛡️ Контракт защищён! Хакерские атаки заблокированы!');
+        addLog('✅ Реентранси атака предотвращена');
+        addLog('💰 Средства пользователей в безопасности');
+        addLog('🏆 КУРС ЗАВЕРШЁН! Вы настоящий мастер Solidity!');
         
-        let withdrawCount = 0;
-        const maxWithdraws = isSecure ? 1 : 5;
-        
-        const attackInterval = setInterval(() => {
-            withdrawCount++;
-            const stolenAmount = 100;
-            
-            if (withdrawCount <= maxWithdraws) {
-                if (isSecure) {
-                    addLog(`❌ Попытка ${withdrawCount}: Реентранси заблокирована!`);
-                } else {
-                    setContractBalance(prev => Math.max(0, prev - stolenAmount));
-                    addLog(`💸 Попытка ${withdrawCount}: Украдено ${stolenAmount} ETH`);
-                }
-            }
-            
-            if (withdrawCount >= maxWithdraws) {
-                clearInterval(attackInterval);
-                setAttackInProgress(false);
-                
-                if (isSecure) {
-                    playSound('success');
-                    addLog('✅ АТАКА ОТРАЖЕНА! Контракт защищён!');
-                    addLog('🎉 Хакер не смог украсть средства!');
-                    
-                    // Завершаем игровую сессию
-                    endGameSession(true, 'excellent');
-                    
-                    // Обновляем статистику игрока
-                    const stars = 3;
-                    const sessionTime = Date.now() - (Date.now() - 80000);
-                    updatePlayerStats(currentLevelNumber, stars, sessionTime);
-                    
-                    // Разблокируем достижение
-                    unlockAchievement('security_expert');
-                    
-                    // Завершаем игру
-                    setTimeout(() => {
-                        setGameCompleted(true);
-                        completeLevel(currentLevelNumber);
-                        addLog('🏆 КУРС ЗАВЕРШЁН! Вы настоящий мастер Solidity!');
-                    }, 2000);
-                } else {
-                    playSound('error');
-                    addLog('💀 КОНТРАКТ ВЗЛОМАН! Баланс опустошён!');
-                    addLog('❌ Реентранси атака сработала!');
-                }
-            }
-        }, 800);
+        // Показать успешные операции
+        const secureOps = [
+            "✅ Депозит: 10 ETH безопасно размещён",
+            "✅ Вывод: 3 ETH успешно выведен",
+            "✅ Попытка повторного вызова заблокирована",
+            "✅ Все средства под защитой"
+        ];
+
+        secureOps.forEach((op, index) => {
+            setTimeout(() => {
+                addLog(op);
+            }, index * 1500);
+        });
     };
 
     const handleCompile = () => {
-        addLog('🔍 Анализ безопасности контракта...');
+        addLog('🔍 Анализ защиты от реентранси...');
         playSound('run');
         
-        const secure = checkSecurity();
-        setIsSecure(secure);
+        const analysis = checkCode();
+        setSecurityStatus(analysis);
         
-        if (secure) {
+        if (analysis.reentrancyFixed) {
             playSound('success');
-            addLog('✅ Контракт защищён от реентранси атак!');
-            addLog('🛡️ Применён паттерн: Проверка → Эффект → Взаимодействие');
+            addLog('✅ АТАКА ОТРАЖЕНА! Контракт защищён!');
+            addLog('🎉 Хакер не смог украсть средства!');
+            setLevelCompleted(true);
+            
+            // Завершаем игровую сессию
+            endGameSession(true, 'excellent');
+            
+            // Обновляем статистику игрока
+            const stars = 3;
+            const sessionTime = Date.now() - (Date.now() - 80000);
+            updatePlayerStats(currentLevelNumber, stars, sessionTime);
+            
+            // Разблокируем достижение
+            unlockAchievement('security_expert');
+            
+            // Завершаем уровень
+            completeLevel(currentLevelNumber);
+            
+            // Показываем кнопку завершения через 3 секунды
+            setTimeout(() => {
+                setShowCompletionButton(true);
+            }, 3000);
+            
+            simulateSecureOperations();
             complete();
         } else {
             playSound('error');
             addLog('❌ Контракт всё ещё уязвим!');
+            addLog('💡 Используйте паттерн CEI: Проверка → Эффект → Взаимодействие');
             addLog('💡 Переместите balances[msg.sender] -= amount ПЕРЕД вызовом call');
-            addLog('💡 Или используйте modifier nonReentrant');
-            addLog('💡 Импортируйте ReentrancyGuard из OpenZeppelin');
-        }
-        
-        setTimeout(() => {
-            simulateAttack();
-        }, 2000);
-    };
-
-    const handleGameComplete = (action: string) => {
-        switch (action) {
-            case 'restart':
-                router.push('/levels/1');
-                break;
-            case 'levels':
-                router.push('/levels/');
-                break;
-            case 'certificate':
-                router.push('/certificate');
-                break;
-            case 'leaderboard':
-                router.push('/leaderboard');
-                break;
-            case 'home':
-                router.push('/');
-                break;
-            default:
-                router.push('/');
+            addLog('💡 Или добавьте modifier nonReentrant');
         }
     };
 
-    // Экран завершения игры
-    if (gameCompleted) {
-        return (
-            <LevelView>
-                <Widget
-                    windowMode
-                    title="🎉 Поздравляем! Курс завершён!"
-                    icon={
-                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3">
-                            <path d="M480-80q-82 0-155-31.5t-127.5-86Q143-252 111.5-325T80-480q0-83 31.5-156t86-127Q252-817 325-848.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 82-31.5 155T763-197.5q-54 54.5-127 86T480-80Z"/>
-                        </svg>
-                    }
-                >
-                    <div className="h-full w-full flex items-center justify-center p-8">
-                        <div className="text-center max-w-2xl">
-                            {/* Анимированная корона */}
-                            <div className="text-8xl mb-6 animate-bounce">👑</div>
-                            
-                            <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-                                МАСТЕР SOLIDITY
-                            </h1>
-                            
-                            <div className="text-xl text-gray-300 mb-8">
-                                Вы успешно прошли все 5 уровней Smart You и получили звание 
-                                <span className="font-bold text-yellow-400"> &quot;Страж блокчейна&quot;</span>!
-                            </div>
-
-                            {/* Статистика */}
-                            <div className="grid grid-cols-3 gap-4 mb-8 p-6 bg-purple-900/30 border border-purple-600 rounded-lg">
-                                <div>
-                                    <div className="text-3xl font-bold text-blue-400">5</div>
-                                    <div className="text-sm text-gray-300">Уровней пройдено</div>
-                                </div>
-                                <div>
-                                    <div className="text-3xl font-bold text-yellow-400">{playerProfile?.stats?.totalXP || 100}</div>
-                                    <div className="text-sm text-gray-300">XP заработано</div>
-                                </div>
-                                <div>
-                                    <div className="text-3xl font-bold text-purple-400">{playerProfile?.stats?.achievements?.length || 5}</div>
-                                    <div className="text-sm text-gray-300">Бейджей получено</div>
-                                </div>
-                            </div>
-
-                            {/* Достижения */}
-                            <div className="mb-8">
-                                <h3 className="text-lg font-semibold mb-4">🏆 Ваши достижения:</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                    <div className="flex items-center gap-2">
-                                        <span>🥇</span>
-                                        <span>Новичок в коде</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span>🗳️</span>
-                                        <span>Защитник демократии</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span>🏪</span>
-                                        <span>Торговец артефактов</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span>🏛️</span>
-                                        <span>DAO участник</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span>🛡️</span>
-                                        <span>Страж блокчейна</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Кнопки действий */}
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <button
-                                        onClick={() => handleGameComplete('certificate')}
-                                        className="px-6 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-700 hover:to-orange-700 transition-all duration-200 font-semibold"
-                                    >
-                                        📜 Получить сертификат
-                                    </button>
-                                    <button
-                                        onClick={() => handleGameComplete('leaderboard')}
-                                        className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 font-semibold"
-                                    >
-                                        🏆 Таблица лидеров
-                                    </button>
-                                </div>
-                                
-                                <div className="grid grid-cols-3 gap-2">
-                                    <button
-                                        onClick={() => handleGameComplete('restart')}
-                                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                                    >
-                                        🔄 Начать заново
-                                    </button>
-                                    <button
-                                        onClick={() => handleGameComplete('levels')}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                                    >
-                                        📚 К уровням
-                                    </button>
-                                    <button
-                                        onClick={() => handleGameComplete('home')}
-                                        className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-                                    >
-                                        🏠 На главную
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Дополнительная информация */}
-                            <div className="mt-8 p-4 bg-blue-900/30 border border-blue-600 rounded-lg text-sm">
-                                <div className="font-semibold text-blue-300 mb-2">🚀 Что дальше?</div>
-                                <div className="text-blue-200">
-                                    Продолжайте изучать Solidity, участвуйте в хакатонах, создавайте собственные DeFi проекты 
-                                    и присоединяйтесь к сообществу блокчейн-разработчиков!
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </Widget>
-            </LevelView>
-        );
-    }
+    const handleGameCompleted = () => {
+        // Переходим к экрану достижений
+        window.location.href = '/achievements';
+    };
 
     return (
         <LevelView>
@@ -318,63 +192,116 @@ contract VulnerableBank {
                 title="Уровень 5: Испытание хакера"
                 icon={
                     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3">
-                        <path d="M280-240q-17 0-28.5-11.5T240-280v-280q0-17 11.5-28.5T280-600h40v-80q0-83 58.5-141.5T520-880q83 0 141.5 58.5T720-680v80h40q17 0 28.5 11.5T800-560v280q0 17-11.5 28.5T760-240H280Z"/>
+                        <path d="M240-80q-33 0-56.5-23.5T160-160v-400q0-33 23.5-56.5T240-640h40v-80q0-83 58.5-141.5T480-920q83 0 141.5 58.5T680-680v80h40q33 0 56.5 23.5T800-520v360q0 33-23.5 56.5T720-80H240Zm0-80h480v-360H240v360Zm120-180q0 17 11.5 28.5T400-300q17 0 28.5-11.5T440-340q0-17-11.5-28.5T400-380q-17 0-28.5 11.5T360-340Zm120 0q0 17 11.5 28.5T520-300q17 0 28.5-11.5T560-340q0-17-11.5-28.5T520-380q-17 0-28.5 11.5T480-340ZM360-640h240v-80q0-50-35-85t-85-35q-50 0-85 35t-35 85v80Z"/>
                     </svg>
                 }
             >
                 <div className="h-full w-full overflow-y-scroll relative pb-24">
-                    <div className="absolute bottom-16 right-3 flex gap-2 items-center">
-                        <div className={`px-3 py-1 rounded text-sm ${isSecure ? 'bg-green-600' : 'bg-red-600'}`}>
-                            {isSecure ? '🛡️ Защищён' : '⚠️ Уязвим'}
+                    <div className="absolute bottom-16 right-3 flex gap-2">
+                        <div className={`px-3 py-1 rounded text-sm ${
+                            levelCompleted ? 'bg-green-600' : hackingInProgress ? 'bg-red-600 animate-pulse' : 'bg-yellow-600'
+                        }`}>
+                            {levelCompleted ? '🛡️ Защищён' : hackingInProgress ? '🔴 Атака!' : `⚠️ ${attackAttempts} попыток`}
                         </div>
-                        <button
-                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                            onClick={handleCompile}
-                            disabled={attackInProgress}
-                        >
-                            {attackInProgress ? 'Атака...' : 'Тест защиты'}
-                        </button>
+                        
+                        {showCompletionButton ? (
+                            <button
+                                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 animate-pulse"
+                                onClick={handleGameCompleted}
+                            >
+                                🏆 Курс завершён!
+                            </button>
+                        ) : (
+                            <button
+                                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                                onClick={handleCompile}
+                                disabled={levelCompleted}
+                            >
+                                {levelCompleted ? 'Выполнено ✓' : 'Активировать защиту'}
+                            </button>
+                        )}
                     </div>
 
                     <div className="p-4">
                         <div className="text-2xl font-semibold">
-                            🚨 Задача #5: Испытание хакера
+                            🛡️ Финальный уровень: Испытание хакера
                         </div>
                         <div className="mt-2 text-lg">
                             Защитите банковский контракт от реентранси атаки. Это финальное испытание!
                         </div>
 
-                        {/* Панель безопасности */}
-                        <div className="mt-4 space-y-3">
-                            {/* Баланс контракта */}
-                            <div className={`p-3 border rounded ${contractBalance > 500 ? 'bg-green-900/30 border-green-600' : 'bg-red-900/30 border-red-600'}`}>
-                                <div className="font-semibold text-white">Баланс контракта:</div>
-                                <div className="text-2xl font-bold">💰 {contractBalance} ETH</div>
-                                {contractBalance < 500 && (
-                                    <div className="text-red-300 text-sm">⚠️ Средства украдены хакером!</div>
-                                )}
+                        {/* Сообщение о завершении */}
+                        {levelCompleted && (
+                            <div className="mt-4 p-3 bg-green-900/30 border border-green-600 rounded">
+                                <div className="font-semibold text-green-300">🏆 КУРС ЗАВЕРШЁН!</div>
+                                <div className="text-green-200">
+                                    ПРЕВОСХОДНО! Вы успешно защитили контракт от хакерской атаки и стали настоящим мастером Solidity!
+                                </div>
                             </div>
+                        )}
 
-                            {/* Статус атаки */}
-                            {attackInProgress && (
-                                <div className="p-3 bg-red-900/50 border border-red-500 rounded animate-pulse">
-                                    <div className="font-semibold text-red-300">🚨 АТАКА В ПРОЦЕССЕ</div>
-                                    <div className="text-red-200">Хакер многократно вызывает withdraw()...</div>
+                        {/* Панель безопасности */}
+                        <div className="mt-4 p-3 bg-red-900/30 border border-red-600 rounded">
+                            <div className="font-semibold text-red-300">🚨 Статус безопасности контракта:</div>
+                            <div className="grid grid-cols-1 gap-2 mt-2">
+                                <div className={`flex items-center justify-between p-2 rounded text-sm ${
+                                    securityStatus.reentrancyFixed 
+                                        ? 'bg-green-800/30 border border-green-600/30' 
+                                        : 'bg-red-800/30 border border-red-600/30'
+                                }`}>
+                                    <span>Защита от реентранси</span>
+                                    <span className={securityStatus.reentrancyFixed ? 'text-green-300' : 'text-red-300'}>
+                                        {securityStatus.reentrancyFixed ? '✅ Активна' : '🔴 Уязвимо'}
+                                    </span>
+                                </div>
+                                
+                                <div className={`flex items-center justify-between p-2 rounded text-sm ${
+                                    securityStatus.attackBlocked 
+                                        ? 'bg-green-800/30 border border-green-600/30' 
+                                        : 'bg-red-800/30 border border-red-600/30'
+                                }`}>
+                                    <span>Блокировка атак</span>
+                                    <span className={securityStatus.attackBlocked ? 'text-green-300' : 'text-red-300'}>
+                                        {securityStatus.attackBlocked ? '✅ Активна' : '🔴 Отключена'}
+                                    </span>
+                                </div>
+                                
+                                <div className={`flex items-center justify-between p-2 rounded text-sm ${
+                                    securityStatus.fundsSecure 
+                                        ? 'bg-green-800/30 border border-green-600/30' 
+                                        : 'bg-red-800/30 border border-red-600/30'
+                                }`}>
+                                    <span>Безопасность средств</span>
+                                    <span className={securityStatus.fundsSecure ? 'text-green-300' : 'text-red-300'}>
+                                        {securityStatus.fundsSecure ? '✅ Защищены' : '🔴 В опасности'}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            {attackAttempts > 0 && !levelCompleted && (
+                                <div className="mt-3 text-center">
+                                    <div className="text-red-200 text-sm animate-pulse">
+                                        ⚠️ Обнаружено {attackAttempts} попыток взлома!
+                                    </div>
                                 </div>
                             )}
-
-                            {/* Подсказки */}
-                            <div className="p-3 bg-yellow-900/30 border border-yellow-600 rounded">
-                                <div className="font-semibold text-yellow-300">🛡️ Методы защиты:</div>
-                                <div className="text-yellow-200 text-sm space-y-1">
-                                    <div>• Паттерн: Проверка → Эффект → Взаимодействие</div>
-                                    <div>• Использовать modifier nonReentrant</div>
-                                    <div>• Импортировать ReentrancyGuard</div>
-                                </div>
-                            </div>
                         </div>
 
-                        <div className="mt-6 h-[400px] flex flex-col gap-4">
+                        {/* Подсказки для исправления */}
+                        {!levelCompleted && (
+                            <div className="mt-4 p-3 bg-yellow-900/30 border border-yellow-600 rounded">
+                                <div className="font-semibold text-yellow-300">🔧 Подсказки для защиты:</div>
+                                <div className="text-yellow-200 text-sm space-y-1 mt-2">
+                                    <div>• 🛡️ Используйте паттерн CEI: Проверка → Эффект → Взаимодействие</div>
+                                    <div>• 💡 Переместите balances[msg.sender] -= amount ПЕРЕД вызовом call</div>
+                                    <div>• 💡 Или используйте modifier nonReentrant</div>
+                                    <div>• 💡 Импортируйте ReentrancyGuard из OpenZeppelin</div>
+                                    <div>• ⚠️ Защитите от повторных вызовов withdraw() в одной транзакции</div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="mt-6 h-[500px] flex flex-col gap-4">
                             <Editor
                                 language="solidity"
                                 theme="vs-dark"
@@ -383,6 +310,7 @@ contract VulnerableBank {
                                 options={{
                                     minimap: { enabled: false },
                                     fontSize: 14,
+                                    readOnly: levelCompleted, // Заблокировать редактирование после завершения
                                 }}
                             />
                         </div>

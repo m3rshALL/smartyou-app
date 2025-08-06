@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-08-06T11:45:43.475Z",
+  "contract": "TestToken (ERC20)",
+  "address": "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "network": "localhost",
+  "name": "SmartYou Test Token",
+  "symbol": "STT",
+  "initialSupply": "1000000.0",
+  "transactionHash": "0x1474f917cd2d2b8543c8fe5fe7c233f45376b0793c13e270e7a3dda312739108"
+}
