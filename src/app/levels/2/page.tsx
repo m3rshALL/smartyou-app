@@ -1,18 +1,21 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useConsole } from '@/features/model/useConsole';
 import { complete, run, spawnCactus } from '@/features/model/gameMechanics';
 import { useLevelTransition } from '@/features/model/levelTransition';
 import { useExtendedGameStore } from '@/features/model/useExtendedGameStore';
 import { useSoundManager } from '@/features/model/useSoundManager';
-import RemixLevelIDE from '@/features/ui/RemixLevelIDE';
+import LevelView from '@/shared/ui/LevelView';
+import Widget from '@/shared/ui/Widget';
+import MonacoEditor from '@/features/ui/MonacoEditor';
 
 export default function LevelTwo() {
     const { addLog } = useConsole();
     const { completeLevel, hasNextLevel } = useLevelTransition();
     const { initializePlayer, startGameSession, endGameSession, updatePlayerStats, unlockAchievement, setCurrentLevel } = useExtendedGameStore();
     const { playSound } = useSoundManager();
+    const [levelCompleted, setLevelCompleted] = useState(false);
 
     const currentLevelNumber = 2;
     const hasNext = hasNextLevel(currentLevelNumber);
@@ -32,8 +35,12 @@ export default function LevelTwo() {
         startGameSession(currentLevelNumber);
         
         run();
-        addLog('🗳️ Миссия: Создайте безопасную систему голосования!');
-        addLog('⚠️ Внимание: нужно предотвратить повторное голосование');
+        addLog('🎯 Добро пожаловать на уровень 2!');
+        addLog('🗳️ Цель: Создайте систему голосования');
+        addLog('💡 Подсказки:');
+        addLog('• Используйте mapping для хранения голосов');
+        addLog('• Добавьте функции vote() и getVotes()');
+        addLog('• Не забудьте про защиту от повторного голосования');
         
         setTimeout(() => {
             spawnCactus();
@@ -41,20 +48,24 @@ export default function LevelTwo() {
     }, [initializePlayer, setCurrentLevel, startGameSession, addLog, currentLevelNumber]);
 
     const handleSuccess = () => {
+        if (levelCompleted) return;
+        
+        setLevelCompleted(true);
         playSound('success');
-        addLog('✅ Контракт успешно скомпилирован!');
-        addLog('🎉 Система голосования защищена от злоупотреблений!');
+        addLog('✅ Контракт голосования успешно развернут!');
+        addLog('🗳️ Отличная работа с mapping!');
+        addLog('💻 Уровень 2 пройден!');
         
         // Завершаем игровую сессию
         endGameSession(true, 'excellent');
         
         // Обновляем статистику игрока
         const stars = 3;
-        const sessionTime = Date.now() - (Date.now() - 45000);
+        const sessionTime = Date.now() - (Date.now() - 80000);
         updatePlayerStats(currentLevelNumber, stars, sessionTime);
         
         // Разблокируем достижение
-        unlockAchievement('democratic_ninja');
+        unlockAchievement('voting_master');
         
         // Завершаем уровень
         completeLevel(currentLevelNumber);
@@ -64,25 +75,69 @@ export default function LevelTwo() {
         setTimeout(() => {
             if (hasNext) {
                 addLog('➡️ Следующий уровень разблокирован!');
-            } else {
-                addLog('🎉 Поздравляем! Все уровни пройдены!');
+                addLog('💡 Перейдите в раздел "Уровни" для продолжения');
             }
         }, 2000);
     };
 
     return (
-        <RemixLevelIDE
-            levelNumber={2}
-            title="🗳️ Уровень 2: Электронное голосование"
-            description="Создайте безопасную систему голосования, которая предотвращает повторное голосование"
-            hints={[
-                "Добавьте проверку require(!hasVoted[msg.sender], \"Already voted\")",
-                "Не забудьте установить hasVoted[msg.sender] = true после голосования",
-                "Используйте события для логирования голосов",
-                "Рассмотрите добавление временных ограничений на голосование"
-            ]}
-            onSuccess={handleSuccess}
-            successMessage="Превосходно! Вы создали надёжную систему голосования."
-        />
+        <LevelView>
+            <div className="flex flex-col gap-3">
+                {/* Информация об уровне */}
+                <Widget 
+                    title="🗳️ Уровень 2: Система голосования" 
+                    icon="📊"
+                >
+                    <div className="space-y-3">
+                        <p className="text-gray-300">
+                            Изучите mapping и создайте децентрализованную систему голосования. 
+                            Это ваш первый шаг к пониманию демократии в блокчейне!
+                        </p>
+                        
+                        <div className="bg-green-900/30 border border-green-500/50 rounded-lg p-3">
+                            <h4 className="text-green-400 font-semibold mb-2">🎯 Задачи:</h4>
+                            <ul className="text-sm text-gray-300 space-y-1">
+                                <li>• Создайте mapping для голосов кандидатов</li>
+                                <li>• Реализуйте функцию vote() с проверками</li>
+                                <li>• Добавьте функцию getVotes() для подсчета</li>
+                                <li>• Разверните контракт для завершения уровня</li>
+                            </ul>
+                        </div>
+
+                        {levelCompleted && (
+                            <div className="bg-green-900/30 border border-green-500/50 rounded-lg p-3 text-center">
+                                <div className="text-green-400 font-semibold">
+                                    🎉 Уровень пройден! 🎉
+                                </div>
+                                <div className="text-green-300 text-sm mt-1">
+                                    Вы создали децентрализованное голосование!
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </Widget>
+
+                {/* Monaco Editor для разработки */}
+                <Widget 
+                    title="💻 Monaco Editor" 
+                    icon="⚒️"
+                    className="flex-1"
+                >
+                    <MonacoEditor 
+                        onContractDeployed={() => {
+                            // При успешном развертывании контракта
+                            handleSuccess();
+                        }}
+                        defaultValue={`// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract VotingSystem {
+    // Создайте mapping для голосов и функции голосования
+    
+}`}
+                    />
+                </Widget>
+            </div>
+        </LevelView>
     );
 }

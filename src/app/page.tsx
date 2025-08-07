@@ -1,519 +1,418 @@
 'use client';
 
-'use client';
-
-import { useState, useEffect } from 'react';
-import { Editor } from '@monaco-editor/react';
+import { useState } from 'react';
+import Link from 'next/link';
 import View from "@/shared/ui/View";
-import Container from "@/shared/ui/Container";
-import Widget from "@/shared/ui/Widget";
-import { Web3Provider } from "@/features/model/Web3Provider";
-import AICodeAssistant from "@/features/ui/AICodeAssistant";
-import AutoConnectMetaMask from "@/features/ui/AutoConnectMetaMask";
-import { CONTRACT_TEMPLATES, TEMPLATE_CATEGORIES, getTemplatesByCategory } from "@/features/model/contractTemplates";
-import { SolidityCompilerService } from "@/features/model/solidityCompilerMock";
-import { toast, Toaster } from 'react-hot-toast';
 import { 
   Play, 
-  Code, 
-  Rocket, 
-  FileText,
-  Wallet,
+  Trophy,
+  Users,
+  Shield,
+  ChevronRight,
   Zap,
-  Copy,
-  ExternalLink,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Loader2
+  Lock,
+  Code,
+  Brain,
+  Award,
+  Target,
+  Cpu,
+  Eye
 } from 'lucide-react';
 
-interface CompilationResult {
-  success: boolean;
-  errors?: string[];
-  warnings?: string[];
-  bytecode?: string;
-  abi?: any[];
+interface GameMission {
+  id: number;
+  title: string;
+  description: string;
+  scenario: string;
+  difficulty: 'Начальный' | 'Начально-средний' | 'Средний' | 'Средне-продвинутый' | 'Продвинутый';
+  icon: string;
+  reward: string;
+  badge: string;
+  xp: number;
+  isLocked: boolean;
+  progress: number;
+  theme: string;
+  topics: string[];
 }
 
-interface DeploymentResult {
-  contractAddress?: string;
-  transactionHash?: string;
-  error?: string;
-}
+const GAME_MISSIONS: GameMission[] = [
+  {
+    id: 1,
+    title: "Кошелёк в опасности",
+    description: "Изучите основы смарт-контрактов и защитите криптокошелёк от потери средств",
+    scenario: "Персонаж не может получить доступ к своим средствам. Исправьте код контракта!",
+    difficulty: 'Начальный',
+    icon: "🔐",
+    reward: "Значок «Новичок в коде»",
+    badge: "Новичок в коде",
+    xp: 10,
+    isLocked: false,
+    progress: 0,
+    theme: "from-cyan-600 to-blue-600",
+    topics: ["contract", "constructor", "payable", "deposit()"]
+  },
+  {
+    id: 2,
+    title: "Электронное голосование",
+    description: "Создайте систему голосования с контролем доступа и защитой от повторных голосов",
+    scenario: "DAO нуждается в честной системе голосования. Обеспечьте безопасность выборов!",
+    difficulty: 'Начально-средний',
+    icon: "🗳️",
+    reward: "Звание «Защитник демократии»",
+    badge: "Защитник демократии",
+    xp: 15,
+    isLocked: false,
+    progress: 0,
+    theme: "from-blue-600 to-purple-600",
+    topics: ["mapping", "onlyOwner", "require", "контроль доступа"]
+  },
+  {
+    id: 3,
+    title: "Рынок магии",
+    description: "Постройте торговую площадку для магических артефактов с использованием структур",
+    scenario: "Торговцы не могут обменять артефакты. Создайте рабочий рынок!",
+    difficulty: 'Средний',
+    icon: "✨",
+    reward: "NFT-артефакт в игре",
+    badge: "NFT-кузнец",
+    xp: 20,
+    isLocked: false,
+    progress: 0,
+    theme: "from-purple-600 to-pink-600",
+    topics: ["struct", "events", "Item", "purchase()"]
+  },
+  {
+    id: 4,
+    title: "DAO — Совет защитников",
+    description: "Внедрите децентрализованное управление с системой предложений и голосования",
+    scenario: "Совет защитников нуждается в DAO для принятия важных решений.",
+    difficulty: 'Средне-продвинутый',
+    icon: "🏛️",
+    reward: "NFT DAO-участника",
+    badge: "DAO-мастер",
+    xp: 25,
+    isLocked: false,
+    progress: 0,
+    theme: "from-pink-600 to-red-600",
+    topics: ["DAO", "Proposal", "голосование по весу", "таймер"]
+  },
+  {
+    id: 5,
+    title: "Испытание хакера",
+    description: "Защитите смарт-контракт от реентранси атак и других уязвимостей",
+    scenario: "Хакер атакует сеть! Исправьте уязвимости и станьте Стражем блокчейна.",
+    difficulty: 'Продвинутый',
+    icon: "🛡️",
+    reward: "Сертификат «Страж блокчейна»",
+    badge: "Страж блокчейна",
+    xp: 30,
+    isLocked: false,
+    progress: 0,
+    theme: "from-red-600 to-orange-600",
+    topics: ["nonReentrant", "безопасность", "OpenZeppelin", "CEI паттерн"]
+  }
+];
 
-function RemixIDEContent() {
-  // States
-  const [selectedTemplate, setSelectedTemplate] = useState('simple-storage');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [code, setCode] = useState(CONTRACT_TEMPLATES['simple-storage'].code);
-  const [isCompiling, setIsCompiling] = useState(false);
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [compilationResult, setCompilationResult] = useState<CompilationResult | null>(null);
-  const [deploymentResult, setDeploymentResult] = useState<DeploymentResult | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [account, setAccount] = useState<string>('');
-  const [constructorArgs, setConstructorArgs] = useState('42');
-  const [activeTab, setActiveTab] = useState<'editor' | 'deploy' | 'interact'>('editor');
-  const [showSettings, setShowSettings] = useState(false);
+export default function HomePage() {
+  const [selectedMission, setSelectedMission] = useState<number | null>(null);
+  const [playerXP] = useState(0);
+  const [playerLevel] = useState(1);
+  const [completedMissions] = useState(0);
 
-  // Initialize compiler
-  const compiler = new SolidityCompilerService();
-
-  useEffect(() => {
-    // Load template when selection changes
-    const template = CONTRACT_TEMPLATES[selectedTemplate as keyof typeof CONTRACT_TEMPLATES];
-    if (template) {
-      setCode(template.code);
-      setCompilationResult(null);
-      setDeploymentResult(null);
-    }
-  }, [selectedTemplate]);
-
-  const handleTemplateChange = (templateKey: string) => {
-    setSelectedTemplate(templateKey);
-  };
-
-  const handleCategoryChange = (categoryId: string) => {
-    setSelectedCategory(categoryId);
-    // Reset to first template in category
-    const templates = getTemplatesByCategory(categoryId);
-    if (templates.length > 0) {
-      const firstTemplate = Object.entries(CONTRACT_TEMPLATES).find(
-        ([_, template]) => template.name === templates[0].name
-      );
-      if (firstTemplate) {
-        setSelectedTemplate(firstTemplate[0]);
-      }
-    }
-  };
-
-  const handleCompile = async () => {
-    setIsCompiling(true);
-    try {
-      const result = await compiler.compile([{ name: 'Contract.sol', content: code }]);
-      
-      const compilationResult: CompilationResult = {
-        success: result.success,
-        errors: result.errors,
-        warnings: result.warnings,
-        bytecode: result.bytecode,
-        abi: result.abi
-      };
-      
-      setCompilationResult(compilationResult);
-      
-      if (result.success) {
-        toast.success('✅ Контракт скомпилирован успешно!');
-      } else {
-        toast.error('❌ Ошибки компиляции');
-      }
-    } catch (error) {
-      console.error('Compilation error:', error);
-      toast.error('Ошибка компиляции');
-    } finally {
-      setIsCompiling(false);
-    }
-  };
-
-  const handleDeploy = async () => {
-    if (!compilationResult?.success) {
-      toast.error('Сначала скомпилируйте контракт');
-      return;
-    }
-
-    if (!isConnected) {
-      toast.error('Подключите MetaMask кошелек');
-      return;
-    }
-
-    setIsDeploying(true);
-    try {
-      // Mock deployment for demo
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const mockResult: DeploymentResult = {
-        contractAddress: '0x' + Math.random().toString(16).substr(2, 40),
-        transactionHash: '0x' + Math.random().toString(16).substr(2, 64)
-      };
-      
-      setDeploymentResult(mockResult);
-      toast.success('🚀 Контракт развернут успешно!');
-      setActiveTab('interact');
-    } catch (error) {
-      console.error('Deployment error:', error);
-      toast.error('Ошибка развертывания');
-    } finally {
-      setIsDeploying(false);
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'Начальный': return 'text-green-400 bg-green-900/30 border-green-500/50';
+      case 'Начально-средний': return 'text-cyan-400 bg-cyan-900/30 border-cyan-500/50';
+      case 'Средний': return 'text-yellow-400 bg-yellow-900/30 border-yellow-500/50';
+      case 'Средне-продвинутый': return 'text-orange-400 bg-orange-900/30 border-orange-500/50';
+      case 'Продвинутый': return 'text-red-400 bg-red-900/30 border-red-500/50';
+      default: return 'text-gray-400 bg-gray-900/30 border-gray-500/50';
     }
   };
-
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success(`${label} скопирован в буфер обмена`);
-  };
-
-  const filteredTemplates = getTemplatesByCategory(selectedCategory);
 
   return (
-    <>
-      <Toaster 
-        position="top-right"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: '#1f2937',
-            color: '#fff',
-            border: '1px solid #374151',
-          },
-        }}
-      />
-      
-      <AutoConnectMetaMask 
-        onConnected={(account) => {
-          setIsConnected(true);
-          setAccount(account);
-        }}
-        onError={(error) => {
-          console.error('MetaMask connection error:', error);
-        }}
-      />
+    <View className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black">
+      {/* Cyberpunk background effects */}
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-transparent"></div>
+      <div className="fixed inset-0">
+        <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+        <div className="absolute top-3/4 right-1/3 w-1 h-1 bg-purple-400 rounded-full animate-pulse delay-700"></div>
+        <div className="absolute bottom-1/4 left-1/2 w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse delay-300"></div>
+      </div>
 
-      <View className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-        <Container className="py-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-500 to-cyan-400 mb-4">
-              🌐 SmartYou IDE
-            </h1>
-            <p className="text-xl text-gray-300 mb-6">
-              Полнофункциональная IDE для разработки смарт-контрактов с AI-ассистентом
+      <div className="relative z-10 px-6 lg:px-48 xl:px-64 py-8">
+        {/* Header - Guardian Identity */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-4 mb-6 px-8 py-4 bg-gray-800/50 backdrop-blur border border-cyan-500/30 rounded-2xl">
+            <Shield className="w-8 h-8 text-cyan-400" />
+            <span className="text-cyan-400 font-mono text-lg">СИСТЕМА АКТИВИРОВАНА</span>
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          </div>
+          
+          <h1 className="text-6xl md:text-8xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 mb-6 font-mono">
+            🛡️ ХРАНИТЕЛЬ БЛОКЧЕЙНА
+          </h1>
+          <div className="max-w-4xl mx-auto bg-gray-800/30 backdrop-blur border border-gray-700/50 rounded-2xl p-8 mb-8">
+            <p className="text-2xl text-cyan-100 mb-4 font-semibold">
+              Добро пожаловать в SmartYou — симуляционную игру защитника сети
+            </p>
+            <p className="text-lg text-gray-300 mb-6">
+              Ваша миссия: защитить децентрализованный мир через освоение программирования смарт-контрактов на Solidity.
+              Пройдите 5 испытаний и станьте настоящим Стражем блокчейна.
             </p>
             
-            {/* Connection Status */}
-            <div className="flex items-center justify-center gap-4 mb-6">
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-                isConnected ? 'bg-green-900/50 text-green-400 border border-green-500/50' : 'bg-red-900/50 text-red-400 border border-red-500/50'
-              }`}>
-                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                <Wallet size={16} />
-                <span className="text-sm">
-                  {isConnected ? `${account.slice(0, 6)}...${account.slice(-4)}` : 'Кошелек не подключен'}
-                </span>
+            {/* Player Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gray-900/50 border border-cyan-500/30 rounded-xl p-4 text-center">
+                <Target className="w-6 h-6 text-cyan-400 mx-auto mb-2" />
+                <div className="text-2xl font-bold text-white">{playerLevel}</div>
+                <div className="text-sm text-gray-400">Уровень</div>
               </div>
-              
-              <div className="flex items-center gap-2 px-4 py-2 bg-blue-900/50 text-blue-400 border border-blue-500/50 rounded-full">
-                <Zap size={16} />
-                <span className="text-sm">Localhost:8545</span>
+              <div className="bg-gray-900/50 border border-purple-500/30 rounded-xl p-4 text-center">
+                <Zap className="w-6 h-6 text-purple-400 mx-auto mb-2" />
+                <div className="text-2xl font-bold text-white">{playerXP}</div>
+                <div className="text-sm text-gray-400">XP</div>
+              </div>
+              <div className="bg-gray-900/50 border border-green-500/30 rounded-xl p-4 text-center">
+                <Trophy className="w-6 h-6 text-green-400 mx-auto mb-2" />
+                <div className="text-2xl font-bold text-white">{completedMissions}</div>
+                <div className="text-sm text-gray-400">Миссии</div>
+              </div>
+              <div className="bg-gray-900/50 border border-yellow-500/30 rounded-xl p-4 text-center">
+                <Award className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
+                <div className="text-2xl font-bold text-white">0</div>
+                <div className="text-sm text-gray-400">Бейджи</div>
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Sidebar - Templates & Categories */}
-            <div className="lg:col-span-1 space-y-4">
-              {/* Categories */}
-              <Widget title="📂 Категории" className="bg-gray-800/50 backdrop-blur">
-                <div className="space-y-2">
-                  {TEMPLATE_CATEGORIES.map((category) => (
+        {/* AI Assistant */}
+        <div className="mb-12">
+          <div className="max-w-3xl mx-auto bg-gradient-to-r from-orange-900/30 to-yellow-900/30 backdrop-blur border border-orange-500/50 rounded-2xl p-6">
+            <div className="flex items-center gap-4">
+              <div className="text-6xl">🦊</div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-orange-300 mb-2">AI-Наставник готов помочь!</h3>
+                <p className="text-orange-100">
+                  Привет, Хранитель! Я твой персональный ассистент. Буду давать подсказки и помогать разбирать ошибки в коде.
+                  Готов начать первую миссию?
+                </p>
+              </div>
+              <div className="text-orange-400 animate-pulse">
+                <Brain className="w-8 h-8" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Mission Grid */}
+        <div className="mb-12">
+          <h2 className="text-4xl font-bold text-white mb-12 text-center font-mono">
+            <Code className="inline-block w-10 h-10 mr-4 text-cyan-400" />
+            КАРТА МИССИЙ БЛОКЧЕЙНА
+          </h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {GAME_MISSIONS.map((mission) => (
+              <div
+                key={mission.id}
+                className={`relative overflow-hidden bg-gradient-to-br ${mission.theme} rounded-2xl p-8 cursor-pointer transform hover:scale-105 transition-all duration-300 shadow-2xl border border-white/10 ${
+                  mission.isLocked 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : selectedMission === mission.id
+                    ? 'ring-2 ring-cyan-400/50 shadow-cyan-500/25'
+                    : 'hover:shadow-3xl hover:border-white/20'
+                }`}
+                onClick={() => !mission.isLocked && setSelectedMission(mission.id)}
+              >
+                {/* Cyberpunk grid overlay */}
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
+                
+                {/* Mission content */}
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="text-6xl mb-4">{mission.icon}</div>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className={`px-4 py-2 rounded-full text-sm border backdrop-blur-sm font-mono ${getDifficultyColor(mission.difficulty)}`}>
+                        {mission.difficulty}
+                      </div>
+                      <div className="px-3 py-1 bg-gray-900/50 backdrop-blur text-yellow-400 text-xs rounded-full border border-yellow-500/30 font-mono">
+                        +{mission.xp} XP
+                      </div>
+                      {mission.isLocked && (
+                        <div className="bg-gray-900/50 backdrop-blur-sm p-2 rounded-full border border-gray-500/30">
+                          <Lock className="w-4 h-4 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <h3 className="text-3xl font-bold text-white mb-3 font-mono">
+                      МИССИЯ {mission.id}
+                    </h3>
+                    <h4 className="text-xl font-semibold text-white/90 mb-4">
+                      {mission.title}
+                    </h4>
+                    <p className="text-white/80 text-lg leading-relaxed mb-4">
+                      {mission.description}
+                    </p>
+                    <div className="bg-black/30 backdrop-blur rounded-lg p-4 mb-4 border border-white/10">
+                      <p className="text-cyan-300 text-sm font-mono">
+                        💡 Сценарий: {mission.scenario}
+                      </p>
+                    </div>
+                    
+                    {/* Topics */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {mission.topics.map((topic, index) => (
+                        <span key={index} className="px-3 py-1 bg-black/40 text-cyan-300 text-xs rounded-full border border-cyan-500/30 font-mono">
+                          {topic}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-white/70 font-mono">Прогресс</span>
+                      <span className="text-white/70 font-mono">{mission.progress}%</span>
+                    </div>
+                    <div className="w-full bg-black/30 rounded-full h-3 backdrop-blur-sm border border-white/10">
+                      <div 
+                        className="bg-gradient-to-r from-cyan-400 to-blue-500 h-3 rounded-full transition-all duration-500"
+                        style={{ width: `${mission.progress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  {/* Reward info */}
+                  <div className="mb-6 bg-black/30 backdrop-blur rounded-lg p-4 border border-yellow-500/30">
+                    <div className="flex items-center gap-3">
+                      <Trophy className="w-5 h-5 text-yellow-400" />
+                      <span className="text-yellow-300 text-sm font-mono">
+                        Награда: {mission.reward}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <Link href={`/levels/${mission.id}`}>
                     <button
-                      key={category.id}
-                      onClick={() => handleCategoryChange(category.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                        selectedCategory === category.id
-                          ? 'bg-blue-600 text-white'
-                          : 'hover:bg-gray-700 text-gray-300'
+                      disabled={mission.isLocked}
+                      className={`w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-lg transition-all duration-300 font-mono ${
+                        mission.isLocked
+                          ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed backdrop-blur-sm border border-gray-600/30'
+                          : 'bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm shadow-lg hover:shadow-xl transform hover:scale-105 border border-white/20 hover:border-white/40'
                       }`}
                     >
-                      <span>{category.icon}</span>
-                      <span className="text-sm">{category.name}</span>
+                      {mission.isLocked ? (
+                        <>
+                          <Lock size={20} />
+                          ЗАБЛОКИРОВАНО
+                        </>
+                      ) : (
+                        <>
+                          <Play size={20} />
+                          НАЧАТЬ МИССИЮ
+                          <ChevronRight size={20} />
+                        </>
+                      )}
                     </button>
-                  ))}
+                  </Link>
                 </div>
-              </Widget>
-
-              {/* Templates */}
-              <Widget title="📋 Шаблоны" className="bg-gray-800/50 backdrop-blur">
-                <div className="space-y-2">
-                  {filteredTemplates.map((template) => {
-                    const templateKey = Object.entries(CONTRACT_TEMPLATES).find(
-                      ([_, t]) => t.name === template.name
-                    )?.[0];
-                    
-                    return (
-                      <button
-                        key={templateKey}
-                        onClick={() => templateKey && handleTemplateChange(templateKey)}
-                        className={`w-full flex items-start gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-                          selectedTemplate === templateKey
-                            ? 'bg-purple-600 text-white'
-                            : 'hover:bg-gray-700 text-gray-300'
-                        }`}
-                      >
-                        <span className="text-lg">{template.icon}</span>
-                        <div>
-                          <div className="text-sm font-medium">{template.name}</div>
-                          <div className="text-xs opacity-80">{template.description}</div>
-                          <div className="text-xs opacity-60 mt-1">
-                            <span className="px-2 py-0.5 bg-gray-600 rounded-full">
-                              {template.category}
-                            </span>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </Widget>
-
-              {/* Quick Actions */}
-              <Widget title="⚡ Быстрые действия" className="bg-gray-800/50 backdrop-blur">
-                <div className="space-y-2">
-                  <button
-                    onClick={handleCompile}
-                    disabled={isCompiling}
-                    className="w-full flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg transition-colors text-sm"
-                  >
-                    {isCompiling ? <Loader2 size={16} className="animate-spin" /> : <Code size={16} />}
-                    {isCompiling ? 'Компиляция...' : 'Компилировать'}
-                  </button>
-                  
-                  <button
-                    onClick={handleDeploy}
-                    disabled={!compilationResult?.success || !isConnected || isDeploying}
-                    className="w-full flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors text-sm"
-                  >
-                    {isDeploying ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />}
-                    {isDeploying ? 'Развертывание...' : 'Развернуть'}
-                  </button>
-                </div>
-              </Widget>
-            </div>
-
-            {/* Main Content */}
-            <div className="lg:col-span-3 space-y-4">
-              {/* Tabs */}
-              <div className="flex items-center gap-1 bg-gray-800/50 backdrop-blur rounded-lg p-1">
-                {[
-                  { id: 'editor', label: 'Редактор', icon: FileText },
-                  { id: 'deploy', label: 'Развертывание', icon: Rocket },
-                  { id: 'interact', label: 'Взаимодействие', icon: Play },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-blue-600 text-white'
-                        : 'hover:bg-gray-700 text-gray-300'
-                    }`}
-                  >
-                    <tab.icon size={16} />
-                    <span>{tab.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Editor Tab */}
-              {activeTab === 'editor' && (
-                <Widget 
-                  title={`💻 ${CONTRACT_TEMPLATES[selectedTemplate as keyof typeof CONTRACT_TEMPLATES]?.name || 'Code Editor'}`}
-                  className="bg-gray-800/50 backdrop-blur"
-                  windowMode
-                >
-                  <div style={{ height: '600px' }}>
-                    <Editor
-                      height="100%"
-                      defaultLanguage="solidity"
-                      value={code}
-                      onChange={(value) => setCode(value || '')}
-                      theme="vs-dark"
-                      options={{
-                        fontSize: 14,
-                        minimap: { enabled: false },
-                        scrollBeyondLastLine: false,
-                        automaticLayout: true,
-                        tabSize: 2,
-                        insertSpaces: true,
-                        wordWrap: 'on',
-                        folding: true,
-                        lineNumbers: 'on',
-                        renderWhitespace: 'boundary',
-                      }}
-                    />
-                  </div>
-                </Widget>
-              )}
-
-              {/* Deploy Tab */}
-              {activeTab === 'deploy' && (
-                <div className="space-y-4">
-                  {/* Compilation Status */}
-                  <Widget title="⚙️ Статус компиляции" className="bg-gray-800/50 backdrop-blur">
-                    {!compilationResult ? (
-                      <div className="text-center py-8 text-gray-400">
-                        <Code size={48} className="mx-auto mb-4 opacity-50" />
-                        <p>Нажмите "Компилировать" для проверки кода</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className={`flex items-center gap-2 ${
-                          compilationResult.success ? 'text-green-400' : 'text-red-400'
-                        }`}>
-                          {compilationResult.success ? <CheckCircle size={20} /> : <XCircle size={20} />}
-                          <span className="font-medium">
-                            {compilationResult.success ? 'Компиляция успешна' : 'Ошибки компиляции'}
-                          </span>
-                        </div>
-
-                        {compilationResult.errors && compilationResult.errors.length > 0 && (
-                          <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-3">
-                            <h4 className="text-red-400 font-medium mb-2">❌ Ошибки:</h4>
-                            {compilationResult.errors.map((error, index) => (
-                              <div key={index} className="text-red-300 text-sm mb-1">{error}</div>
-                            ))}
-                          </div>
-                        )}
-
-                        {compilationResult.warnings && compilationResult.warnings.length > 0 && (
-                          <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-3">
-                            <h4 className="text-yellow-400 font-medium mb-2">⚠️ Предупреждения:</h4>
-                            {compilationResult.warnings.map((warning, index) => (
-                              <div key={index} className="text-yellow-300 text-sm mb-1">{warning}</div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </Widget>
-
-                  {/* Constructor Arguments */}
-                  {compilationResult?.success && (
-                    <Widget title="🔧 Параметры конструктора" className="bg-gray-800/50 backdrop-blur">
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Аргументы конструктора (разделенные запятой):
-                          </label>
-                          <input
-                            type="text"
-                            value={constructorArgs}
-                            onChange={(e) => setConstructorArgs(e.target.value)}
-                            placeholder="Например: 42, 'Hello World', true"
-                            className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <p className="text-xs text-gray-400">
-                          💡 Для строк используйте кавычки, для чисел - без кавычек
-                        </p>
-                      </div>
-                    </Widget>
-                  )}
-                </div>
-              )}
-
-              {/* Interact Tab */}
-              {activeTab === 'interact' && (
-                <div className="space-y-4">
-                  {!deploymentResult ? (
-                    <Widget title="🚀 Развертывание" className="bg-gray-800/50 backdrop-blur">
-                      <div className="text-center py-8 text-gray-400">
-                        <Rocket size={48} className="mx-auto mb-4 opacity-50" />
-                        <p>Сначала разверните контракт для взаимодействия с ним</p>
-                      </div>
-                    </Widget>
-                  ) : (
-                    <>
-                      {/* Deployed Contract Info */}
-                      <Widget title="📋 Информация о контракте" className="bg-gray-800/50 backdrop-blur">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-400">Адрес контракта:</span>
-                            <div className="flex items-center gap-2">
-                              <code className="bg-gray-700 px-2 py-1 rounded text-sm">
-                                {deploymentResult.contractAddress}
-                              </code>
-                              <button
-                                onClick={() => copyToClipboard(deploymentResult.contractAddress!, 'Адрес')}
-                                className="text-blue-400 hover:text-blue-300 transition-colors"
-                              >
-                                <Copy size={16} />
-                              </button>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-400">Транзакция:</span>
-                            <div className="flex items-center gap-2">
-                              <code className="bg-gray-700 px-2 py-1 rounded text-sm">
-                                {deploymentResult.transactionHash?.slice(0, 10)}...
-                              </code>
-                              <button
-                                onClick={() => copyToClipboard(deploymentResult.transactionHash!, 'Hash транзакции')}
-                                className="text-blue-400 hover:text-blue-300 transition-colors"
-                              >
-                                <Copy size={16} />
-                              </button>
-                              <button className="text-blue-400 hover:text-blue-300 transition-colors">
-                                <ExternalLink size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </Widget>
-
-                      {/* Contract Interaction */}
-                      <Widget title="🔧 Взаимодействие с контрактом" className="bg-gray-800/50 backdrop-blur">
-                        <div className="text-center py-8 text-gray-400">
-                          <AlertCircle size={48} className="mx-auto mb-4 opacity-50" />
-                          <p className="mb-2">Функции контракта будут отображены здесь</p>
-                          <p className="text-sm">После интеграции с реальным компилятором</p>
-                        </div>
-                      </Widget>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Footer Stats */}
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Шаблонов', value: Object.keys(CONTRACT_TEMPLATES).length, icon: '📋' },
-              { label: 'Категорий', value: TEMPLATE_CATEGORIES.length - 1, icon: '📂' },
-              { label: 'Строк кода', value: code.split('\n').length, icon: '💻' },
-              { label: 'Символов', value: code.length, icon: '📝' },
-            ].map((stat, index) => (
-              <div
-                key={index}
-                className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-lg p-4 text-center"
-              >
-                <div className="text-2xl mb-2">{stat.icon}</div>
-                <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
-                <div className="text-sm text-gray-400">{stat.label}</div>
               </div>
             ))}
           </div>
-        </Container>
+        </div>
 
-        {/* AI Assistant */}
-        <AICodeAssistant 
-          currentCode={code}
-          onCodeSuggestion={(newCode) => {
-            setCode(newCode);
-            toast.success('Код обновлен AI-ассистентом!');
-          }}
-        />
-      </View>
-    </>
-  );
-}
+        {/* Navigation Panel */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <Link href="/achievements">
+            <div className="bg-gray-800/50 backdrop-blur border border-yellow-500/30 rounded-xl p-8 text-center cursor-pointer transform hover:scale-105 transition-all duration-300 hover:bg-gray-700/50 hover:border-yellow-400/50">
+              <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+              <h3 className="text-2xl font-bold text-white mb-3 font-mono">ДОСТИЖЕНИЯ</h3>
+              <p className="text-gray-400">Ваши бейджи, награды и сертификаты за выполнение миссий</p>
+            </div>
+          </Link>
 
-export default function HomePage() {
-  return (
-    <Web3Provider>
-      <RemixIDEContent />
-    </Web3Provider>
+          <Link href="/leaderboard">
+            <div className="bg-gray-800/50 backdrop-blur border border-purple-500/30 rounded-xl p-8 text-center cursor-pointer transform hover:scale-105 transition-all duration-300 hover:bg-gray-700/50 hover:border-purple-400/50">
+              <Users className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+              <h3 className="text-2xl font-bold text-white mb-3 font-mono">РЕЙТИНГ ХРАНИТЕЛЕЙ</h3>
+              <p className="text-gray-400">Соревнуйтесь с другими Хранителями блокчейна</p>
+            </div>
+          </Link>
+
+          <Link href="/blockchain">
+            <div className="bg-gray-800/50 backdrop-blur border border-cyan-500/30 rounded-xl p-8 text-center cursor-pointer transform hover:scale-105 transition-all duration-300 hover:bg-gray-700/50 hover:border-cyan-400/50">
+              <Cpu className="w-16 h-16 text-cyan-400 mx-auto mb-4" />
+              <h3 className="text-2xl font-bold text-white mb-3 font-mono">ЛАБОРАТОРИЯ</h3>
+              <p className="text-gray-400">Свободная разработка и эксперименты с Solidity</p>
+            </div>
+          </Link>
+        </div>
+
+        {/* Final Goal */}
+        <div className="max-w-4xl mx-auto bg-gradient-to-r from-green-900/30 to-emerald-900/30 backdrop-blur border border-green-500/50 rounded-2xl p-8 text-center mb-12">
+          <div className="text-6xl mb-6">🏆</div>
+          <h2 className="text-3xl font-bold text-green-300 mb-4 font-mono">ФИНАЛЬНАЯ ЦЕЛЬ</h2>
+          <p className="text-green-100 text-lg mb-6">
+            Пройдите все 5 миссий и получите сертификат <strong>«Страж Блокчейна»</strong>
+          </p>
+          <div className="bg-black/30 backdrop-blur rounded-lg p-4 border border-green-500/30">
+            <p className="text-green-200 font-mono">
+              🎯 После получения сертификата откроется доступ к реальному тестнету Ethereum
+            </p>
+          </div>
+        </div>
+
+        {/* Game Features */}
+        <div className="text-center">
+          <h2 className="text-4xl font-bold text-white mb-8 font-mono">
+            <Eye className="inline-block w-10 h-10 mr-4 text-cyan-400" />
+            ОСОБЕННОСТИ ИГРЫ
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              {
+                icon: <Code className="w-12 h-12" />,
+                title: "Реальный Solidity",
+                description: "Пишите настоящие смарт-контракты с проверкой синтаксиса"
+              },
+              {
+                icon: <Brain className="w-12 h-12" />,
+                title: "AI-Наставник", 
+                description: "Персональный помощник даёт подсказки при ошибках"
+              },
+              {
+                icon: <Shield className="w-12 h-12" />,
+                title: "Симуляция атак",
+                description: "Визуальная демонстрация уязвимостей и их исправление"
+              },
+              {
+                icon: <Trophy className="w-12 h-12" />,
+                title: "Система наград",
+                description: "XP, бейджи, NFT и финальный сертификат"
+              }
+            ].map((feature, index) => (
+              <div key={index} className="text-center p-6 bg-gray-800/30 backdrop-blur border border-gray-700/50 rounded-xl hover:border-cyan-500/30 transition-all">
+                <div className="text-cyan-400 mb-4 flex justify-center">
+                  {feature.icon}
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-3 font-mono">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-400 leading-relaxed">
+                  {feature.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </View>
   );
 }

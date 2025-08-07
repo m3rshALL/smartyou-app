@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Editor } from '@monaco-editor/react';
 import { 
   SolidityCompilerService, 
@@ -8,15 +8,6 @@ import {
   type SolidityFile, 
   type DeploymentResult 
 } from '../model/solidityCompilerMock';
-import { useWeb3Context, type ContractABI, useContractInteraction } from '../model/Web3Provider';
-import type { editor } from 'monaco-editor';
-
-// Define Monaco languages interface
-interface MonacoLanguages {
-  register: (language: { id: string }) => void;
-  setMonarchTokensProvider: (languageId: string, provider: unknown) => void;
-  registerCompletionItemProvider: (languageId: string, provider: unknown) => void;
-}
 
 interface SolidityIDEProps {
   className?: string;
@@ -32,18 +23,20 @@ export default function SolidityIDE({ className = '', onContractDeployed }: Soli
   const [isDeploying, setIsDeploying] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState('SimpleStorage.sol');
   const [constructorArgs, setConstructorArgs] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [provider, setProvider] = useState<any>(null);
 
-  const compiler = getSolidityCompiler();
+  const compiler = useMemo(() => new SolidityCompilerService(), []);
 
   // Initialize with default template
   useEffect(() => {
     const templates = compiler.getContractTemplates();
     setCode(templates[selectedTemplate] || templates['SimpleStorage.sol']);
-  }, [selectedTemplate]);
+  }, [selectedTemplate, compiler]);
 
   // Setup Monaco editor for Solidity
-  const handleEditorWillMount = (monaco: Monaco) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleEditorWillMount = (monaco: any) => {
     // Register Solidity language
     monaco.languages.register({ id: 'solidity' });
 
@@ -83,9 +76,9 @@ export default function SolidityIDE({ className = '', onContractDeployed }: Soli
     });
 
     // Add completion provider
-    const completionProvider: editor.languages.CompletionItemProvider = {
-      provideCompletionItems: (model, position) => {
-        const suggestions = [
+    monaco.languages.registerCompletionItemProvider('solidity', {
+      provideCompletionItems: () => ({
+        suggestions: [
           {
             label: 'contract',
             kind: monaco.languages.CompletionItemKind.Keyword,
@@ -121,13 +114,9 @@ export default function SolidityIDE({ className = '', onContractDeployed }: Soli
             insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
             documentation: 'Emit an event'
           }
-        ];
-
-        return { suggestions };
-      }
-    };
-
-    monaco.languages.registerCompletionItemProvider('solidity', completionProvider);
+        ]
+      })
+    });
   };
 
   // Handle template change
@@ -176,7 +165,8 @@ export default function SolidityIDE({ className = '', onContractDeployed }: Soli
       if (constructorArgs.trim()) {
         try {
           args = JSON.parse(`[${constructorArgs}]`);
-        } catch (error) {
+        } catch {
+          // Ignore error
           throw new Error('Invalid constructor arguments. Please use JSON format: "value1", "value2"');
         }
       }
@@ -204,7 +194,9 @@ export default function SolidityIDE({ className = '', onContractDeployed }: Soli
     if (typeof window !== 'undefined' && 'ethereum' in window) {
       try {
         const { ethers } = await import('ethers');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const provider = new ethers.BrowserProvider((window as any).ethereum);
         setProvider(provider);
       } catch (error) {
