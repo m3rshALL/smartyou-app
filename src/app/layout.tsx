@@ -3,6 +3,7 @@ import "./globals.css";
 import { Golos_Text } from "next/font/google";
 import type { Metadata } from "next";
 import StoreProvider from "@/features/ui/StoreProvider";
+import { Web3Provider } from "@/features/model/useWeb3Context";
 
 const golos = Golos_Text({
   variable: "--font-golos",
@@ -24,7 +25,9 @@ export default function RootLayout({
       <body
         className={`${golos.variable} antialiased bg-dark font-golos text-white`}
       >
-        {children}
+        <Web3Provider>
+          {children}
+        </Web3Provider>
 
         <StoreProvider />
       </body>
