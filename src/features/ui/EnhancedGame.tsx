@@ -178,7 +178,7 @@ export default function EnhancedGame() {
 
     return (
         <Widget
-            className="min-h-[500px] md:grow"
+            className="h-[600px]"
             title={`Игровая панель - Уровень ${currentLevel}`}
             icon={
                 <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3">

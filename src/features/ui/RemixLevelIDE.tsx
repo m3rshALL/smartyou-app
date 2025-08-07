@@ -497,10 +497,11 @@ export default function RemixLevelIDE({
         windowMode
         title={title}
         icon={<Code className="w-5 h-5" />}
+        className="h-[900px]" // Фиксированная высота
       >
         <div className="h-full flex flex-col">
           {/* Remix-style header */}
-          <div className="border-b border-gray-700 bg-gray-800">
+          <div className="border-b border-gray-700 bg-gray-800 flex-shrink-0">
             <div className="flex items-center justify-between p-2">
               <div className="flex space-x-1">
                 <button
@@ -549,12 +550,12 @@ export default function RemixLevelIDE({
             </div>
           </div>
 
-          {/* Main content area */}
-          <div className="flex-1 flex">
+          {/* Main content area - фиксированная высота */}
+          <div className="flex-1 flex min-h-0">
             {/* Left panel - Editor or other tabs */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-h-0">
               {activeTab === 'editor' && (
-                <div className="flex-1 relative">
+                <div className="flex-1 relative min-h-0">
                   <Editor
                     language="solidity"
                     theme="vs-dark"
@@ -606,7 +607,7 @@ export default function RemixLevelIDE({
               )}
 
               {activeTab === 'deploy' && (
-                <div className="flex-1 p-4 overflow-y-auto">
+                <div className="flex-1 p-4 overflow-y-auto min-h-0">
                   <h3 className="text-lg font-semibold mb-4">Deploy Contract</h3>
                   
                   <div className="space-y-4">
@@ -661,7 +662,7 @@ export default function RemixLevelIDE({
               )}
 
               {activeTab === 'interact' && (
-                <div className="flex-1 p-4 overflow-y-auto">
+                <div className="flex-1 p-4 overflow-y-auto min-h-0">
                   <h3 className="text-lg font-semibold mb-4">Contract Interaction</h3>
                   
                   {deployedContract ? (
@@ -691,7 +692,7 @@ export default function RemixLevelIDE({
               )}
 
               {activeTab === 'ai' && (
-                <div className="flex-1 p-4 overflow-y-auto">
+                <div className="flex-1 p-4 overflow-y-auto min-h-0">
                   <h3 className="text-lg font-semibold mb-4 flex items-center">
                     <MessageCircle className="w-5 h-5 mr-2" />
                     AI Code Assistant
@@ -743,9 +744,9 @@ export default function RemixLevelIDE({
               )}
             </div>
 
-            {/* Right panel - Stats and hints */}
-            <div className="w-80 border-l border-gray-700 bg-gray-800">
-              <div className="p-4">
+            {/* Right panel - Stats and hints - фиксированная высота */}
+            <div className="w-80 border-l border-gray-700 bg-gray-800 flex flex-col min-h-0">
+              <div className="p-4 flex-1 overflow-y-auto">
                 <h3 className="text-lg font-semibold mb-4">Level Info</h3>
                 <div className="text-sm text-gray-300 mb-4">{description}</div>
                 
